@@ -11,18 +11,18 @@ def populate_dim_company():
     cur = conn.cursor()
 
     companies = [
-        {"ticker": "AAPL", "name": "Apple Inc.", "sector": "Technology", "industry": "Consumer Electronics", "exchange": "NASDAQ"},
-        {"ticker": "GOOG", "name": "Alphabet Inc.", "sector": "Technology", "industry": "Internet Content", "exchange": "NASDAQ"},
-        {"ticker": "JPM", "name": "JPMorgan Chase & Co.", "sector": "Finance", "industry": "Banking", "exchange": "NYSE"},
-        {"ticker": "META", "name": "Meta Platforms", "sector": "Technology", "industry": "Social Media", "exchange": "NASDAQ"},
+        {"ticker": "AAPL", "company_name": "Apple Inc.", "sector": "Technology", "industry": "Consumer Electronics", "exchange": "NASDAQ"},
+        {"ticker": "GOOG", "company_name": "Alphabet Inc.", "sector": "Technology", "industry": "Internet Content", "exchange": "NASDAQ"},
+        {"ticker": "JPM", "company_name": "JPMorgan Chase & Co.", "sector": "Finance", "industry": "Banking", "exchange": "NYSE"},
+        {"ticker": "META", "company_name": "Meta Platforms", "sector": "Technology", "industry": "Social Media", "exchange": "NASDAQ"},
     ]
 
     for c in companies:
         cur.execute("""
-            INSERT INTO dim_company (ticker, name, sector, industry, exchange)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO dim_company (ticker, company_name, sector, industry, exchange, is_current, effective_date)
+            VALUES (%s, %s, %s, %s, %s, TRUE, CURRENT_DATE)
             ON CONFLICT (ticker) DO NOTHING;
-        """, (c["ticker"], c["name"], c["sector"], c["industry"], c["exchange"]))
+        """, (c["ticker"], c["company_name"], c["sector"], c["industry"], c["exchange"]))
 
     conn.commit()
     cur.close()

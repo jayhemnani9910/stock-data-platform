@@ -8,6 +8,7 @@ import pandas as pd
 import json
 import os
 import psycopg2
+import gzip
 
 # Load tickers
 TICKERS_FILE = '/opt/airflow/dags/tickers.txt'
@@ -21,6 +22,33 @@ default_args = {
 }
 
 # === ETL TASKS ===
+def _stage_path_for_run(ticker, stage, run_suffix):
+    safe_ticker = ticker.lower()
+    base_dir = "/tmp/stock_data_platform"
+    os.makedirs(base_dir, exist_ok=True)
+    return os.path.join(base_dir, f"{safe_ticker}_{stage}_{run_suffix}.json.gz")
+
+def _normalize_columns(df, ticker):
+    df = df.copy()
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = ['_'.join(col) for col in df.columns]
+
+    expected = [
+        f'Open_{ticker}',
+        f'High_{ticker}',
+        f'Low_{ticker}',
+        f'Close_{ticker}',
+        f'Volume_{ticker}',
+    ]
+    if not all(col in df.columns for col in expected):
+        rename_map = {}
+        for col in ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']:
+            if col in df.columns:
+                rename_map[col] = f"{col}_{ticker}"
+        if rename_map:
+            df = df.rename(columns=rename_map)
+
+    return df
 
 def extract_data(ticker, ti):
     try:
@@ -29,28 +57,47 @@ def extract_data(ticker, ti):
         df = yf.download(ticker, start=start_date, end=end_date, progress=False)
         if df.empty:
             raise ValueError("Downloaded dataframe is empty.")
-        ti.xcom_push(key='raw_df', value=df.to_json(orient='split'))
+        run_suffix = ti.ts_nodash or datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        raw_path = _stage_path_for_run(ticker, "raw", run_suffix)
+        with gzip.open(raw_path, "wt", encoding="utf-8") as f:
+            f.write(df.to_json(orient="split"))
+        ti.xcom_push(key='raw_path', value=raw_path)
         print(f"✅ Extracted {len(df)} records for {ticker}")
     except Exception as e:
         raise Exception(f"❌ Extract Error [{ticker}]: {str(e)}")
 
 def transform_data(ticker, ti):
     try:
-        raw_json = ti.xcom_pull(key='raw_df', task_ids=f'{ticker}_extract')
-        df = pd.read_json(raw_json, orient='split')
-        df.columns = ['_'.join(col) if isinstance(col, tuple) else col for col in df.columns]
+        raw_path = ti.xcom_pull(key='raw_path', task_ids=f'{ticker}_extract')
+        if not raw_path or not os.path.exists(raw_path):
+            raise ValueError("Missing raw dataframe path.")
+        df = pd.read_json(raw_path, orient='split', compression='gzip')
+        df = _normalize_columns(df, ticker)
+        required_cols = [
+            f'Open_{ticker}', f'High_{ticker}', f'Low_{ticker}',
+            f'Close_{ticker}', f'Volume_{ticker}'
+        ]
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            raise ValueError(f"Missing columns after normalization: {missing_cols}")
         df.dropna(inplace=True)
         df = df[df[f'Volume_{ticker}'] > 0]
         df.index = pd.to_datetime(df.index)
-        ti.xcom_push(key='cleaned_json', value=df.to_json(orient='split'))
+        run_suffix = ti.ts_nodash or datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        cleaned_path = _stage_path_for_run(ticker, "cleaned", run_suffix)
+        with gzip.open(cleaned_path, "wt", encoding="utf-8") as f:
+            f.write(df.to_json(orient="split"))
+        ti.xcom_push(key='cleaned_path', value=cleaned_path)
         print(f"✅ Transformed {ticker}")
     except Exception as e:
         raise Exception(f"❌ Transform Error [{ticker}]: {str(e)}")
 
 def load_data(ticker, ti):
     try:
-        json_data = ti.xcom_pull(key='cleaned_json', task_ids=f'{ticker}_transform')
-        df = pd.read_json(json_data, orient='split')
+        cleaned_path = ti.xcom_pull(key='cleaned_path', task_ids=f'{ticker}_transform')
+        if not cleaned_path or not os.path.exists(cleaned_path):
+            raise ValueError("Missing cleaned dataframe path.")
+        df = pd.read_json(cleaned_path, orient='split', compression='gzip')
 
         conn = psycopg2.connect(
             host="timescaledb", dbname="stockdw",
@@ -93,6 +140,10 @@ def load_data(ticker, ti):
         conn.commit()
         cur.close()
         conn.close()
+        raw_path = ti.xcom_pull(key='raw_path', task_ids=f'{ticker}_extract')
+        for path in (raw_path, cleaned_path):
+            if path and os.path.exists(path):
+                os.remove(path)
         print(f"✅ Loaded {len(df)} rows for {ticker}")
     except Exception as e:
         raise Exception(f"❌ Load Error [{ticker}]: {str(e)}")
@@ -166,8 +217,7 @@ for ticker in TICKERS:
             task_id=f'{ticker}_trigger_export',
             trigger_dag_id='csv_export_dag',
             wait_for_completion=False,
-            reset_dag_run=True,
-            execution_date="{{ ds }}"
+            reset_dag_run=False
         )
 
         extract >> transform >> load >> trigger_export
@@ -179,6 +229,7 @@ with DAG(
     dag_id='csv_export_dag',
     default_args=default_args,
     schedule_interval=None,
+    max_active_runs=1,
     start_date=datetime(2025, 4, 20),
     catchup=False,
     tags=['stock', 'CSV']

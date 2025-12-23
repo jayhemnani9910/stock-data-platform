@@ -22,14 +22,15 @@ services:
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://data226:12345678@timescaledb:5432/stockdw
+      AIRFLOW_CONN_TIMESCALEDB_CONN: postgresql://data226:12345678@timescaledb:5432/stockdw
       AIRFLOW__WEBSERVER__SECRET_KEY: my_super_secret_key
       AIRFLOW__CORE__FERNET_KEY: f8nSfkKjNwYaJmd_Tr6JvACFpVoOgmHiSlXfiUiQvmM=
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./Dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
-      - ./sql:/opt/airflow/sql
+      - ./SQL:/opt/airflow/sql
       - ./requirements.txt:/requirements.txt
       
 
@@ -39,7 +40,7 @@ services:
       bash -c "
       pip install -r /requirements.txt &&
       airflow db migrate &&
-      airflow users create --username admin --password admin --firstname Air --lastname Flow --role Admin --email admin@example.com &&
+      (airflow users create --username admin --password admin --firstname Air --lastname Flow --role Admin --email admin@example.com || true) &&
       airflow webserver"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -53,18 +54,20 @@ services:
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://data226:12345678@timescaledb:5432/stockdw
+      AIRFLOW_CONN_TIMESCALEDB_CONN: postgresql://data226:12345678@timescaledb:5432/stockdw
       AIRFLOW__WEBSERVER__SECRET_KEY: my_super_secret_key
       AIRFLOW__CORE__FERNET_KEY: f8nSfkKjNwYaJmd_Tr6JvACFpVoOgmHiSlXfiUiQvmM=
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./Dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
-      - ./sql:/opt/airflow/sql
+      - ./SQL:/opt/airflow/sql
       - ./requirements.txt:/requirements.txt
     command: >
       bash -c "
       pip install -r /requirements.txt &&
+      airflow db migrate &&
       airflow scheduler"
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -112,6 +115,4 @@ services:
       - kafka
       - timescaledb
     restart: always
-
-
 
