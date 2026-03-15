@@ -59,12 +59,12 @@ Built on **TimescaleDB** for time-series optimized queries on top of PostgreSQL 
 | Service | Image | Port | Purpose |
 |---------|-------|------|---------|
 | `timescaledb` | timescale/timescaledb:latest-pg14 | 5432 | Data warehouse |
-| `airflow-webserver` | apache/airflow:2.7.3 | 8081 | DAG monitoring UI |
-| `airflow-scheduler` | apache/airflow:2.7.3 | — | DAG execution |
+| `airflow-webserver` | Custom (Dockerfile.airflow) | 8081 | DAG monitoring UI |
+| `airflow-scheduler` | Custom (Dockerfile.airflow) | — | DAG execution |
 | `zookeeper` | confluentinc/cp-zookeeper | 2181 | Kafka coordination |
 | `kafka` | confluentinc/cp-kafka | 9092 | Message broker |
-| `kafka-producer` | Custom (Dockerfile.producer) | — | Market data ingestion |
-| `kafka-consumer` | Custom (Dockerfile.consumer) | — | Kafka → TimescaleDB sink |
+| `kafka-producer` | Custom (Dockerfile.kafka) | — | Market data ingestion |
+| `kafka-consumer` | Custom (Dockerfile.kafka) | — | Kafka → TimescaleDB sink |
 
 ---
 
@@ -72,10 +72,11 @@ Built on **TimescaleDB** for time-series optimized queries on top of PostgreSQL 
 
 | DAG | Schedule | Purpose |
 |-----|----------|---------|
-| `etl_stock_data_dag` | Daily | End-to-end stock data ETL |
-| `populate_dim_company_dag` | On-demand | Load company dimension table |
-| `populate_dim_date_dag` | On-demand | Generate date dimension |
-| `populate_fact_stock_price_dag` | Daily | Load daily OHLCV facts |
+| `etl_stock_data_<ticker>` | Daily | Per-ticker ETL (one DAG per ticker, e.g. `etl_stock_data_aapl`) |
+| `populate_dim_company` | On-demand | Load company dimension table |
+| `populate_dim_date` | On-demand | Generate date dimension (1990–2035) |
+| `populate_fact_stock_price` | On-demand | Seed sample OHLCV facts (test data) |
+| `csv_export_dag` | Triggered | Export last 30 days to CSV per ticker |
 | `monthly_aggregate_dag` | Monthly | Compute monthly price aggregations |
 
 ---
@@ -89,10 +90,11 @@ docker compose up -d
 # 2. Access Airflow UI
 open http://localhost:8081   # admin / admin
 
-# 3. Enable DAGs and trigger:
-#    - populate_dim_company_dag (first)
-#    - populate_dim_date_dag
-#    - etl_stock_data_dag
+# 3. Schema is auto-created on first startup.
+#    Enable and trigger DAGs in order:
+#    - populate_dim_company (first)
+#    - populate_dim_date
+#    - etl_stock_data_aapl (or any ticker DAG)
 
 # 4. Query the warehouse
 docker exec -it timescaledb psql -U data226 -d stockdw \
@@ -105,24 +107,26 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 
 ```
 ├── Dags/                          # Airflow DAG definitions
+│   ├── dag_config.py              # Shared DAG defaults and ticker loading
 │   ├── etl_stock_data_dag.py
-│   ├── populate_dim_company_dag.py
-│   ├── populate_dim_date_dag.py
-│   ├── populate_fact_stock_price_dag.py
+│   ├── populate_dags.py           # Dimension and fact table population DAGs
 │   ├── monthly_aggregate_dag.py
-│   └── stock_csvs/                # Sample data (10 tickers × 30 days)
+│   └── tickers.txt                # Tracked ticker symbols
 ├── SQL/
 │   ├── schema.sql                 # Star schema DDL (TimescaleDB)
 │   └── aggregate_monthly.sql      # Monthly rollup query
 ├── scripts/
+│   ├── db_utils.py                # Shared database utilities
 │   ├── populate_dim_company.py
 │   ├── populate_dim_date.py
 │   └── populate_fact_stock_price.py
+├── docs/                          # Architecture diagrams (D2)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB
-├── live_from_kafka.py             # Real-time Kafka stream reader
-├── Dockerfile.producer            # Market data producer container
-├── Dockerfile.consumer            # Kafka→DB consumer container
+├── live_from_kafka.py             # Real-time Kafka producer
+├── Dockerfile.kafka               # Shared Kafka producer/consumer image
+├── Dockerfile.airflow             # Custom Airflow image with dependencies
 ├── docker-compose.yml             # 7-service orchestration
+├── .env.example                   # Environment variable template
 └── requirements.txt
 ```
 

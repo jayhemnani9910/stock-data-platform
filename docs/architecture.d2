@@ -1,0 +1,106 @@
+title: Stock Data Platform - System Architecture {
+  near: top-center
+  shape: text
+  style.font-size: 24
+  style.bold: true
+}
+
+direction: right
+
+data-sources: External Data {
+  style.fill: "#e8f5e9"
+  yahoo: Yahoo Finance API {
+    shape: cloud
+  }
+}
+
+streaming: Streaming Layer {
+  style.fill: "#e3f2fd"
+  zookeeper: Zookeeper {
+    shape: hexagon
+    style.fill: "#bbdefb"
+  }
+  kafka: Kafka Broker {
+    shape: queue
+    style.fill: "#90caf9"
+  }
+  producer: Kafka Producer {
+    shape: rectangle
+    tooltip: "live_from_kafka.py"
+  }
+  consumer: Kafka Consumer {
+    shape: rectangle
+    tooltip: "kafka_to_postgres.py"
+  }
+
+  zookeeper -> kafka: coordination
+  producer -> kafka: stock-data topic
+  kafka -> consumer: consume messages
+}
+
+orchestration: Orchestration Layer {
+  style.fill: "#fff3e0"
+  scheduler: Airflow Scheduler {
+    shape: hexagon
+    style.fill: "#ffe0b2"
+  }
+  webserver: Airflow Webserver {
+    shape: rectangle
+    tooltip: "port 8081"
+  }
+  etl-dags: ETL DAGs {
+    shape: document
+    tooltip: "1 per ticker"
+  }
+  dim-dags: Dimension DAGs {
+    shape: document
+    tooltip: "populate_dim_*"
+  }
+  agg-dag: Monthly Aggregate {
+    shape: document
+  }
+
+  scheduler -> etl-dags: triggers daily
+  scheduler -> agg-dag: triggers monthly
+}
+
+storage: Storage Layer {
+  style.fill: "#fce4ec"
+  timescaledb: TimescaleDB {
+    shape: cylinder
+    style.fill: "#ef9a9a"
+  }
+  dim_company: dim_company {
+    shape: sql_table
+  }
+  dim_date: dim_date {
+    shape: sql_table
+  }
+  fact_daily: fact_stock_price_daily {
+    shape: sql_table
+  }
+  fact_monthly: fact_stock_price_monthly {
+    shape: sql_table
+  }
+
+  timescaledb -> dim_company
+  timescaledb -> dim_date
+  timescaledb -> fact_daily
+  timescaledb -> fact_monthly
+}
+
+output: Output {
+  style.fill: "#f3e5f5"
+  csvs: CSV Exports {
+    shape: page
+    tooltip: "30-day snapshots"
+  }
+}
+
+data-sources.yahoo -> streaming.producer: 1-min bars (yfinance)
+data-sources.yahoo -> orchestration.etl-dags: 25-year history (yfinance)
+streaming.consumer -> storage.timescaledb: upsert (real-time)
+orchestration.etl-dags -> storage.timescaledb: upsert (batch)
+orchestration.dim-dags -> storage.timescaledb: populate dimensions
+orchestration.agg-dag -> storage.timescaledb: monthly rollup
+orchestration.etl-dags -> output.csvs: trigger export

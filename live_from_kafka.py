@@ -1,83 +1,132 @@
 from kafka import KafkaProducer
-import yfinance as yf
 import json
 import time
-import psycopg2
+import os
+import sys
+from datetime import datetime, time as dtime
+from zoneinfo import ZoneInfo
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from yfinance import Ticker
 from yfinance.exceptions import YFRateLimitError
 
-# Retry until Kafka is available
-while True:
-    try:
-        producer = KafkaProducer(
-            bootstrap_servers=['stock-data-platform-kafka:9092'],  # container name in docker-compose
-            value_serializer=lambda v: json.dumps(v).encode('utf-8')
-        )
-        print("✅ Connected to Kafka broker.")
-        break
-    except Exception as e:
-        print("Retrying Kafka connection in 5 seconds...", e)
-        time.sleep(5)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
+from db_utils import connect_db
 
-def connect_db():
-    while True:
-        try:
-            conn = psycopg2.connect(
-                host="timescaledb",
-                dbname="stockdw",
-                user="data226",
-                password="12345678",
-                port=5432
-            )
-            return conn
-        except Exception as e:
-            print("Retrying DB connection in 5 seconds...", e)
-            time.sleep(5)
+ET = ZoneInfo("America/New_York")
+MARKET_OPEN = dtime(9, 30)
+MARKET_CLOSE = dtime(16, 0)
 
-def get_company_key(ticker):
+POLL_INTERVAL = 15
+OFF_HOURS_INTERVAL = 300
+KAFKA_TOPIC = os.environ.get("KAFKA_TOPIC", "stock-data")
+MAX_RETRIES = 10
+BACKOFF_BASE = 5
+BACKOFF_CAP = 60
+
+
+def _load_tickers():
+    tickers_str = os.environ.get("STOCK_TICKERS", "AAPL")
+    return [t.strip() for t in tickers_str.split(",") if t.strip()]
+
+
+def _is_market_open():
+    now = datetime.now(ET)
+    if now.weekday() >= 5:
+        return False
+    return MARKET_OPEN <= now.time() <= MARKET_CLOSE
+
+
+def _resolve_company_keys(tickers):
     conn = connect_db()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT company_key FROM dim_company WHERE ticker = %s AND is_current = TRUE",
-        (ticker,)
-    )
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    return row[0] if row else None
-
-TICKER = "AAPL"
-company_key = None
-while company_key is None:
-    company_key = get_company_key(TICKER)
-    if company_key is None:
-        print(f"⏳ {TICKER} not found in dim_company yet. Retrying in 10 seconds...")
-        time.sleep(10)
-
-# Send mock stock data continuously
-while True:
     try:
-        data = Ticker(TICKER).history(period="1d", interval="1m").tail(1)
-        if data.empty:
-            print("⏭️ No new market data yet. Retrying in 30 seconds...")
-            time.sleep(30)
+        while True:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT ticker, company_key FROM dim_company WHERE ticker = ANY(%s) AND is_current = TRUE",
+                    (list(tickers),),
+                )
+                company_keys = {ticker: key for ticker, key in cur.fetchall()}
+            missing = [t for t in tickers if t not in company_keys]
+            if not missing:
+                return company_keys
+            print(f"{', '.join(missing)} not found in dim_company yet. Retrying in 10 seconds...")
+            time.sleep(10)
+    finally:
+        conn.close()
+
+
+def _fetch_ticker_data(ticker_obj, ticker):
+    """Fetch latest 1-min bar for a single ticker. Returns (ticker, payload) or (ticker, None)."""
+    data = ticker_obj.history(period="5m", interval="1m").tail(1)
+    if data.empty:
+        return ticker, None
+    last_ts = data.index[-1]
+    return ticker, {
+        "date": last_ts.date().isoformat(),
+        "open": float(data["Open"].iloc[-1]),
+        "high": float(data["High"].iloc[-1]),
+        "low": float(data["Low"].iloc[-1]),
+        "close": float(data["Close"].iloc[-1]),
+        "volume": int(data["Volume"].iloc[-1])
+    }
+
+
+def main():
+    tickers = _load_tickers()
+    print(f"Producing for {len(tickers)} tickers: {', '.join(tickers)}")
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            producer = KafkaProducer(
+                bootstrap_servers=[os.environ.get('KAFKA_BOOTSTRAP', 'stock-data-platform-kafka:9092')],
+                value_serializer=lambda v: json.dumps(v).encode('utf-8')
+            )
+            print("Connected to Kafka broker.")
+            break
+        except Exception as e:
+            delay = min(BACKOFF_BASE * (2 ** (attempt - 1)), BACKOFF_CAP)
+            print(f"Kafka connection attempt {attempt}/{MAX_RETRIES} failed: {e}. Retrying in {delay}s...")
+            time.sleep(delay)
+    else:
+        raise ConnectionError(f"Failed to connect to Kafka after {MAX_RETRIES} attempts")
+
+    company_keys = _resolve_company_keys(tickers)
+    ticker_objs = {t: Ticker(t) for t in tickers}
+    logged_closed = False
+
+    while True:
+        if not _is_market_open():
+            if not logged_closed:
+                print("Market is closed. Checking again in 5 minutes...")
+                logged_closed = True
+            time.sleep(OFF_HOURS_INTERVAL)
             continue
-        last_ts = data.index[-1]
-        payload = {
-            "company_key": company_key,
-            "date": last_ts.date().isoformat(),
-            "open": float(data["Open"].iloc[-1]),
-            "high": float(data["High"].iloc[-1]),
-            "low": float(data["Low"].iloc[-1]),
-            "close": float(data["Close"].iloc[-1]),
-            "volume": int(data["Volume"].iloc[-1])
-        }
-        producer.send("stock-data", value=payload)
-        print("📤 Sent:", payload)
-        time.sleep(15)
-    except YFRateLimitError:
-        print("⏳ Rate limited by Yahoo Finance. Backing off for 60 seconds...")
-        time.sleep(60)
-    except Exception as e:
-        print("❌ Unexpected error:", e)
-        time.sleep(30)
+
+        logged_closed = False
+        try:
+            with ThreadPoolExecutor(max_workers=min(len(tickers), 5)) as executor:
+                futures = {
+                    executor.submit(_fetch_ticker_data, ticker_objs[t], t): t
+                    for t in tickers
+                }
+                for future in as_completed(futures):
+                    ticker = futures[future]
+                    try:
+                        _, payload = future.result()
+                        if payload:
+                            payload["company_key"] = company_keys[ticker]
+                            producer.send(KAFKA_TOPIC, value=payload)
+                            print(f"Sent [{ticker}]:", payload)
+                    except YFRateLimitError:
+                        print("Rate limited by Yahoo Finance. Backing off for 60 seconds...")
+                        time.sleep(60)
+                    except Exception as e:
+                        print(f"Error fetching {ticker}: {e}")
+        except Exception as e:
+            print(f"Unexpected error in fetch cycle: {e}")
+
+        time.sleep(POLL_INTERVAL)
+
+
+if __name__ == "__main__":
+    main()

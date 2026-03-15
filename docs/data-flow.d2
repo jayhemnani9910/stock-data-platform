@@ -1,0 +1,95 @@
+title: Stock Data Platform - Data Flow {
+  near: top-center
+  shape: text
+  style.font-size: 24
+  style.bold: true
+}
+
+direction: down
+
+yahoo: Yahoo Finance {
+  shape: cloud
+  style.fill: "#c8e6c9"
+}
+
+real-time: Real-Time Path {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c0"
+
+  fetch: "Fetch 1-min bars\n(period=5m)" {
+    shape: step
+  }
+  serialize: "Serialize to JSON" {
+    shape: step
+  }
+  kafka: "Kafka topic:\nstock-data" {
+    shape: queue
+    style.fill: "#90caf9"
+  }
+  deserialize: "Deserialize JSON" {
+    shape: step
+  }
+  upsert-rt: "Batch upsert\n(50 msg batches)" {
+    shape: step
+  }
+
+  fetch -> serialize -> kafka -> deserialize -> upsert-rt
+}
+
+batch: Batch ETL Path {
+  style.fill: "#fff3e0"
+  style.stroke: "#e65100"
+
+  extract: "Extract\n25-year history" {
+    shape: step
+  }
+  stage-raw: "Stage raw\n(gzip JSON)" {
+    shape: cylinder
+    style.fill: "#ffe0b2"
+  }
+  transform: "Transform\n- Normalize columns\n- Drop NaN/zero-vol\n- Parse dates" {
+    shape: step
+  }
+  stage-clean: "Stage cleaned\n(gzip JSON)" {
+    shape: cylinder
+    style.fill: "#ffe0b2"
+  }
+  load: "Batch upsert\n(execute_values)" {
+    shape: step
+  }
+
+  extract -> stage-raw -> transform -> stage-clean -> load
+}
+
+db: TimescaleDB {
+  shape: cylinder
+  style.fill: "#ef9a9a"
+
+  fact_daily: fact_stock_price_daily {
+    shape: sql_table
+  }
+  fact_monthly: fact_stock_price_monthly {
+    shape: sql_table
+  }
+}
+
+aggregate: "Monthly Aggregate\n(SQL GROUP BY)" {
+  shape: step
+  style.fill: "#ce93d8"
+}
+
+export: "CSV Export\n(30-day window)" {
+  shape: page
+  style.fill: "#f3e5f5"
+}
+
+yahoo -> real-time.fetch
+yahoo -> batch.extract
+
+real-time.upsert-rt -> db.fact_daily: "upsert"
+batch.load -> db.fact_daily: "batch upsert"
+
+db.fact_daily -> aggregate: "previous month only"
+aggregate -> db.fact_monthly: "upsert"
+
+db.fact_daily -> export: "query per ticker"

@@ -8,6 +8,7 @@ SELECT
     AVG(low) AS avg_low,
     SUM(volume) AS total_volume
 FROM fact_stock_price_daily
+WHERE DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
 GROUP BY company_key, DATE_TRUNC('month', date)
 ON CONFLICT (company_key, month) DO UPDATE
 SET avg_open = EXCLUDED.avg_open,

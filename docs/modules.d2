@@ -1,0 +1,105 @@
+title: Stock Data Platform - Module Dependencies {
+  near: top-center
+  shape: text
+  style.font-size: 24
+  style.bold: true
+}
+
+direction: right
+
+shared: Shared Modules {
+  style.fill: "#e8eaf6"
+  db_utils: "scripts/db_utils.py\n─────────────────\nconnect_db()\nget_db_connection()\nget_company_key()\nupsert_stock_prices()\nbatch_insert()" {
+    shape: class
+    style.fill: "#c5cae9"
+  }
+  dag_config: "Dags/dag_config.py\n─────────────────\nDEFAULT_ARGS\nETL_DEFAULT_ARGS\nload_tickers()" {
+    shape: class
+    style.fill: "#c5cae9"
+  }
+}
+
+streaming: Streaming {
+  style.fill: "#e3f2fd"
+  producer: "live_from_kafka.py\n─────────────────\nmain()" {
+    shape: class
+  }
+  consumer: "kafka_to_postgres.py\n─────────────────\nmain()" {
+    shape: class
+  }
+}
+
+dags: Airflow DAGs {
+  style.fill: "#fff3e0"
+  etl: "etl_stock_data_dag.py\n─────────────────\nextract_data()\ntransform_data()\nload_data()\nexport_30_day_csvs()" {
+    shape: class
+  }
+  dim_date: "populate_dim_date_dag.py" {
+    shape: class
+  }
+  dim_company: "populate_dim_company_dag.py" {
+    shape: class
+  }
+  fact: "populate_fact_stock_price_dag.py" {
+    shape: class
+  }
+  monthly: "monthly_aggregate_dag.py" {
+    shape: class
+  }
+}
+
+scripts: Population Scripts {
+  style.fill: "#e8f5e9"
+  pop_date: "scripts/populate_dim_date.py\n─────────────────\ngenerate_dates()" {
+    shape: class
+  }
+  pop_company: "scripts/populate_dim_company.py\n─────────────────\npopulate_dim_company()" {
+    shape: class
+  }
+  pop_fact: "scripts/populate_fact_stock_price.py\n─────────────────\npopulate_fact_stock_price()" {
+    shape: class
+  }
+}
+
+sql: SQL {
+  style.fill: "#fce4ec"
+  schema: "SQL/schema.sql" {
+    shape: document
+  }
+  agg: "SQL/aggregate_monthly.sql" {
+    shape: document
+  }
+}
+
+external: External Libraries {
+  style.fill: "#f5f5f5"
+  yfinance: yfinance {shape: package}
+  kafka_py: kafka-python {shape: package}
+  psycopg2: psycopg2 {shape: package}
+  pandas: pandas {shape: package}
+}
+
+streaming.producer -> shared.db_utils: imports
+streaming.consumer -> shared.db_utils: imports
+streaming.producer -> external.yfinance: imports
+streaming.producer -> external.kafka_py: imports
+streaming.consumer -> external.kafka_py: imports
+
+dags.etl -> shared.dag_config: imports
+dags.etl -> shared.db_utils: imports
+dags.etl -> external.yfinance: imports
+dags.etl -> external.pandas: imports
+dags.dim_date -> shared.dag_config: imports
+dags.dim_date -> scripts.pop_date: imports
+dags.dim_company -> shared.dag_config: imports
+dags.dim_company -> scripts.pop_company: imports
+dags.fact -> shared.dag_config: imports
+dags.fact -> scripts.pop_fact: imports
+dags.monthly -> shared.dag_config: imports
+dags.monthly -> sql.agg: executes
+
+scripts.pop_date -> shared.db_utils: imports
+scripts.pop_company -> shared.db_utils: imports
+scripts.pop_fact -> shared.db_utils: imports
+
+shared.db_utils -> external.psycopg2: imports

@@ -1,30 +1,40 @@
-import psycopg2
+import os
+from db_utils import get_db_connection, batch_insert
+
+TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
+
+COMPANY_METADATA = {
+    "AAPL": ("Apple Inc.", "Technology", "Consumer Electronics", "NASDAQ"),
+    "AMZN": ("Amazon.com Inc.", "Consumer Cyclical", "Internet Retail", "NASDAQ"),
+    "DIS": ("The Walt Disney Company", "Communication Services", "Entertainment", "NYSE"),
+    "GOOG": ("Alphabet Inc.", "Technology", "Internet Content", "NASDAQ"),
+    "JPM": ("JPMorgan Chase & Co.", "Finance", "Banking", "NYSE"),
+    "META": ("Meta Platforms", "Technology", "Social Media", "NASDAQ"),
+    "MSFT": ("Microsoft Corporation", "Technology", "Software", "NASDAQ"),
+    "NFLX": ("Netflix Inc.", "Communication Services", "Entertainment", "NASDAQ"),
+    "NVDA": ("NVIDIA Corporation", "Technology", "Semiconductors", "NASDAQ"),
+    "TSLA": ("Tesla Inc.", "Consumer Cyclical", "Auto Manufacturers", "NASDAQ"),
+}
+
 
 def populate_dim_company():
-    conn = psycopg2.connect(
-        host="timescaledb",
-        dbname="stockdw",
-        user="data226",
-        password="12345678",
-        port=5432
-    )
-    cur = conn.cursor()
+    with open(TICKERS_FILE, 'r') as f:
+        tickers = [line.strip() for line in f if line.strip()]
 
-    companies = [
-        {"ticker": "AAPL", "company_name": "Apple Inc.", "sector": "Technology", "industry": "Consumer Electronics", "exchange": "NASDAQ"},
-        {"ticker": "GOOG", "company_name": "Alphabet Inc.", "sector": "Technology", "industry": "Internet Content", "exchange": "NASDAQ"},
-        {"ticker": "JPM", "company_name": "JPMorgan Chase & Co.", "sector": "Finance", "industry": "Banking", "exchange": "NYSE"},
-        {"ticker": "META", "company_name": "Meta Platforms", "sector": "Technology", "industry": "Social Media", "exchange": "NASDAQ"},
-    ]
+    companies = []
+    for ticker in tickers:
+        meta = COMPANY_METADATA.get(ticker)
+        if not meta:
+            print(f"Warning: no metadata for {ticker}, skipping")
+            continue
+        companies.append((ticker, *meta))
 
-    for c in companies:
-        cur.execute("""
-            INSERT INTO dim_company (ticker, company_name, sector, industry, exchange, is_current, effective_date)
-            VALUES (%s, %s, %s, %s, %s, TRUE, CURRENT_DATE)
-            ON CONFLICT (ticker) DO NOTHING;
-        """, (c["ticker"], c["company_name"], c["sector"], c["industry"], c["exchange"]))
+    with get_db_connection() as conn:
+        batch_insert(
+            conn,
+            "INSERT INTO dim_company (ticker, company_name, sector, industry, exchange) "
+            "VALUES %s ON CONFLICT (ticker) DO NOTHING",
+            companies,
+        )
 
-    conn.commit()
-    cur.close()
-    conn.close()
-    print("✅ dim_company populated.")
+    print(f"dim_company populated with {len(companies)} companies.")

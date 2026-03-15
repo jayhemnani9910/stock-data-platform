@@ -1,44 +1,56 @@
 version: '3.8'
 
+x-db-env: &db-env
+  DB_HOST: ${DB_HOST:-timescaledb}
+  DB_NAME: ${DB_NAME:-stockdw}
+  DB_USER: ${DB_USER:-data226}
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+
+x-airflow-env: &airflow-env
+  <<: *db-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER:-data226}:${DB_PASSWORD}@${DB_HOST:-timescaledb}:5432/${DB_NAME:-stockdw}
+  AIRFLOW_CONN_TIMESCALEDB_CONN: postgresql://${DB_USER:-data226}:${DB_PASSWORD}@${DB_HOST:-timescaledb}:5432/${DB_NAME:-stockdw}
+  AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:?Set AIRFLOW__WEBSERVER__SECRET_KEY in .env}
+  AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:?Set AIRFLOW__CORE__FERNET_KEY in .env}
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+  AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+
+x-airflow-volumes: &airflow-volumes
+  - ./Dags:/opt/airflow/dags
+  - ./scripts:/opt/airflow/scripts
+  - ./SQL:/opt/airflow/sql
+  - ./requirements.txt:/requirements.txt
+
 services:
   timescaledb:
     image: timescale/timescaledb:latest-pg14
     container_name: timescaledb
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
-      POSTGRES_USER: data226
-      POSTGRES_PASSWORD: 12345678
-      POSTGRES_DB: stockdw
+      POSTGRES_USER: ${POSTGRES_USER:-data226}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-stockdw}
     volumes:
       - ./data/db:/var/lib/postgresql/data
+      - ./SQL/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
 
   airflow-webserver:
-    image: apache/airflow:2.7.3
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow-webserver
     restart: always
     depends_on:
       - timescaledb
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://data226:12345678@timescaledb:5432/stockdw
-      AIRFLOW_CONN_TIMESCALEDB_CONN: postgresql://data226:12345678@timescaledb:5432/stockdw
-      AIRFLOW__WEBSERVER__SECRET_KEY: my_super_secret_key
-      AIRFLOW__CORE__FERNET_KEY: f8nSfkKjNwYaJmd_Tr6JvACFpVoOgmHiSlXfiUiQvmM=
-      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    volumes:
-      - ./Dags:/opt/airflow/dags
-      - ./scripts:/opt/airflow/scripts
-      - ./SQL:/opt/airflow/sql
-      - ./requirements.txt:/requirements.txt
-      
-
+      <<: *airflow-env
+    volumes: *airflow-volumes
     ports:
       - "8081:8080"
     command: >
       bash -c "
-      pip install -r /requirements.txt &&
       airflow db migrate &&
       (airflow users create --username admin --password admin --firstname Air --lastname Flow --role Admin --email admin@example.com || true) &&
       airflow webserver"
@@ -46,34 +58,25 @@ services:
       - "host.docker.internal:host-gateway"
 
   airflow-scheduler:
-    image: apache/airflow:2.7.3
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow-scheduler
     restart: always
     depends_on:
       - timescaledb
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://data226:12345678@timescaledb:5432/stockdw
-      AIRFLOW_CONN_TIMESCALEDB_CONN: postgresql://data226:12345678@timescaledb:5432/stockdw
-      AIRFLOW__WEBSERVER__SECRET_KEY: my_super_secret_key
-      AIRFLOW__CORE__FERNET_KEY: f8nSfkKjNwYaJmd_Tr6JvACFpVoOgmHiSlXfiUiQvmM=
-      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    volumes:
-      - ./Dags:/opt/airflow/dags
-      - ./scripts:/opt/airflow/scripts
-      - ./SQL:/opt/airflow/sql
-      - ./requirements.txt:/requirements.txt
+      <<: *airflow-env
+    volumes: *airflow-volumes
     command: >
       bash -c "
-      pip install -r /requirements.txt &&
       airflow db migrate &&
       airflow scheduler"
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.4.0
     container_name: stock-data-platform-zookeeper
     ports:
       - "2181:2181"
@@ -82,7 +85,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.4.0
     container_name: stock-data-platform-kafka
     depends_on:
       - zookeeper
@@ -96,23 +99,33 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://stock-data-platform-kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
-
   kafka-producer:
     build:
       context: .
-      dockerfile: Dockerfile.producer
+      dockerfile: Dockerfile.kafka
+      args:
+        SCRIPT: live_from_kafka.py
     container_name: stock-data-platform-kafka-producer
     depends_on:
       - kafka
+      - timescaledb
+    environment:
+      <<: *db-env
+      KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-stock-data-platform-kafka:9092}
+      STOCK_TICKERS: ${STOCK_TICKERS:-AAPL,AMZN,DIS,GOOG,JPM,META,MSFT,NFLX,NVDA,TSLA}
     restart: always
 
   kafka-consumer:
     build:
       context: .
-      dockerfile: Dockerfile.consumer
+      dockerfile: Dockerfile.kafka
+      args:
+        SCRIPT: kafka_to_postgres.py
     container_name: stock-data-platform-kafka-consumer
     depends_on:
       - kafka
       - timescaledb
+    environment:
+      <<: *db-env
+      KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-stock-data-platform-kafka:9092}
     restart: always
-
