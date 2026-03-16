@@ -470,23 +470,10 @@ img { max-width: 100%; display: block; }
   box-shadow: 0 0 40px rgba(0, 220, 130, 0.05);
 }
 
-/* Fade edges to black */
-.diagram-frame::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 50%, var(--bg-deep) 100%);
-  z-index: 1;
-  pointer-events: none;
-}
-
 .diagram-frame img,
 .diagram-frame object {
   width: 100%;
-  max-height: 500px;
   object-fit: contain;
-  /* Recolor SVG from blue to green tint */
-  filter: hue-rotate(90deg) saturate(0.7) brightness(1.2);
 }
 
 /* ═══ USE CASES ═══ */

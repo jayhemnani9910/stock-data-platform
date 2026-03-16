@@ -1,106 +1,153 @@
-title: Stock Data Platform - System Architecture {
+title: Stock Data Platform {
   near: top-center
   shape: text
-  style.font-size: 24
+  style.font-size: 36
   style.bold: true
+  style.font-color: "#e2e8f0"
 }
 
 direction: right
 
+**.style.font-size: 26
+**.style.font-color: "#e2e8f0"
+**.style.stroke: "#334155"
+
+(* -> *)[*].style.font-size: 26
+(**.* -> **.*)[*].style.font-size: 26
+
 data-sources: External Data {
-  style.fill: "#e8f5e9"
+  style.fill: "#111827"
+  style.stroke: "#1e293b"
   yahoo: Yahoo Finance API {
     shape: cloud
+    style.fill: "#1a2235"
+    style.stroke: "#00dc82"
+    style.font-color: "#00dc82"
   }
 }
 
 streaming: Streaming Layer {
-  style.fill: "#e3f2fd"
+  style.fill: "#111827"
+  style.stroke: "#1e293b"
+  style.font-color: "#94a3b8"
   zookeeper: Zookeeper {
     shape: hexagon
-    style.fill: "#bbdefb"
+    style.fill: "#1a2235"
+    style.stroke: "#334155"
   }
   kafka: Kafka Broker {
     shape: queue
-    style.fill: "#90caf9"
+    style.fill: "#1a2235"
+    style.stroke: "#3b82f6"
+    style.font-color: "#3b82f6"
   }
   producer: Kafka Producer {
     shape: rectangle
-    tooltip: "live_from_kafka.py"
+    style.fill: "#1a2235"
+    style.stroke: "#334155"
   }
   consumer: Kafka Consumer {
     shape: rectangle
-    tooltip: "kafka_to_postgres.py"
+    style.fill: "#1a2235"
+    style.stroke: "#334155"
   }
 
-  zookeeper -> kafka: coordination
-  producer -> kafka: stock-data topic
-  kafka -> consumer: consume messages
+  zookeeper -> kafka: coordination {style.stroke: "#475569"; style.font-size: 26}
+  producer -> kafka: stock-data topic {style.stroke: "#00dc82"; style.font-size: 26}
+  kafka -> consumer: consume {style.stroke: "#00dc82"; style.font-size: 26}
 }
 
 orchestration: Orchestration Layer {
-  style.fill: "#fff3e0"
+  style.fill: "#111827"
+  style.stroke: "#1e293b"
+  style.font-color: "#94a3b8"
   scheduler: Airflow Scheduler {
     shape: hexagon
-    style.fill: "#ffe0b2"
+    style.fill: "#1a2235"
+    style.stroke: "#f59e0b"
+    style.font-color: "#f59e0b"
   }
   webserver: Airflow Webserver {
     shape: rectangle
-    tooltip: "port 8081"
+    style.fill: "#1a2235"
+    style.stroke: "#334155"
   }
   etl-dags: ETL DAGs {
     shape: document
-    tooltip: "1 per ticker"
+    style.fill: "#1a2235"
+    style.stroke: "#334155"
   }
   dim-dags: Dimension DAGs {
     shape: document
-    tooltip: "populate_dim_*"
+    style.fill: "#1a2235"
+    style.stroke: "#334155"
   }
   agg-dag: Monthly Aggregate {
     shape: document
+    style.fill: "#1a2235"
+    style.stroke: "#334155"
   }
 
-  scheduler -> etl-dags: triggers daily
-  scheduler -> agg-dag: triggers monthly
+  scheduler -> etl-dags: daily {style.stroke: "#f59e0b"; style.font-size: 26}
+  scheduler -> agg-dag: monthly {style.stroke: "#f59e0b"; style.font-size: 26}
 }
 
 storage: Storage Layer {
-  style.fill: "#fce4ec"
+  style.fill: "#111827"
+  style.stroke: "#1e293b"
+  style.font-color: "#94a3b8"
   timescaledb: TimescaleDB {
     shape: cylinder
-    style.fill: "#ef9a9a"
+    style.fill: "#1a2235"
+    style.stroke: "#22d3ee"
+    style.font-color: "#22d3ee"
   }
   dim_company: dim_company {
     shape: sql_table
+    style.fill: "#1a2235"
+    style.stroke: "#3b82f6"
+    style.font-color: "#3b82f6"
   }
   dim_date: dim_date {
     shape: sql_table
+    style.fill: "#1a2235"
+    style.stroke: "#3b82f6"
+    style.font-color: "#3b82f6"
   }
   fact_daily: fact_stock_price_daily {
     shape: sql_table
+    style.fill: "#1a2235"
+    style.stroke: "#00dc82"
+    style.font-color: "#00dc82"
   }
   fact_monthly: fact_stock_price_monthly {
     shape: sql_table
+    style.fill: "#1a2235"
+    style.stroke: "#00dc82"
+    style.font-color: "#00dc82"
   }
 
-  timescaledb -> dim_company
-  timescaledb -> dim_date
-  timescaledb -> fact_daily
-  timescaledb -> fact_monthly
+  timescaledb -> dim_company {style.stroke: "#475569"}
+  timescaledb -> dim_date {style.stroke: "#475569"}
+  timescaledb -> fact_daily {style.stroke: "#475569"}
+  timescaledb -> fact_monthly {style.stroke: "#475569"}
 }
 
 output: Output {
-  style.fill: "#f3e5f5"
+  style.fill: "#111827"
+  style.stroke: "#1e293b"
+  style.font-color: "#94a3b8"
   csvs: CSV Exports {
     shape: page
-    tooltip: "30-day snapshots"
+    style.fill: "#1a2235"
+    style.stroke: "#334155"
   }
 }
 
-data-sources.yahoo -> streaming.producer: 1-min bars (yfinance)
-data-sources.yahoo -> orchestration.etl-dags: 25-year history (yfinance)
-streaming.consumer -> storage.timescaledb: upsert (real-time)
-orchestration.etl-dags -> storage.timescaledb: upsert (batch)
-orchestration.dim-dags -> storage.timescaledb: populate dimensions
-orchestration.agg-dag -> storage.timescaledb: monthly rollup
-orchestration.etl-dags -> output.csvs: trigger export
+data-sources.yahoo -> streaming.producer: yfinance (1-min bars) {style.stroke: "#00dc82"; style.font-color: "#94a3b8"; style.font-size: 26}
+data-sources.yahoo -> orchestration.etl-dags: yfinance (25-yr history) {style.stroke: "#00dc82"; style.font-color: "#94a3b8"; style.font-size: 26}
+streaming.consumer -> storage.timescaledb: real-time upsert {style.stroke: "#22d3ee"; style.font-color: "#94a3b8"; style.font-size: 26}
+orchestration.etl-dags -> storage.timescaledb: batch upsert {style.stroke: "#f59e0b"; style.font-color: "#94a3b8"; style.font-size: 26}
+orchestration.dim-dags -> storage.timescaledb: populate dims {style.stroke: "#475569"; style.font-color: "#94a3b8"; style.font-size: 26}
+orchestration.agg-dag -> storage.timescaledb: monthly rollup {style.stroke: "#475569"; style.font-color: "#94a3b8"; style.font-size: 26}
+orchestration.etl-dags -> output.csvs: export {style.stroke: "#475569"; style.font-color: "#94a3b8"; style.font-size: 26}
