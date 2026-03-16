@@ -1,39 +1,48 @@
 import os
+import re
 from edgar import set_identity, Company
 from db_utils import get_db_connection, get_company_key, batch_insert, UPSERT_SEC_FINANCIALS_SQL
 
 TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
 
-STATEMENT_METHODS = {
-    'income': 'income_statement',
-    'balance_sheet': 'balance_sheet',
-    'cash_flow': 'cash_flow_statement',
+STATEMENT_TYPES = {
+    'IncomeStatement': 'income',
+    'BalanceSheet': 'balance_sheet',
+    'CashFlowStatement': 'cash_flow',
 }
 
 
-def _extract_statement(financials, method_name, statement_type, company_key, filing_date, filing_type):
+def _parse_period_end(period_key):
+    """Extract end date from period key like 'duration_2024-09-29_2025-09-27' or 'instant_2025-09-27'."""
+    match = re.search(r'(\d{4}-\d{2}-\d{2})$', period_key)
+    return match.group(1) if match else None
+
+
+def _extract_statement(xbrl, stmt_type_key, stmt_label, company_key, filing_date, filing_type):
     rows = []
     try:
-        statement = getattr(financials, method_name, None)
-        if statement is None:
+        s_info = xbrl.get_statement_by_type(stmt_type_key)
+        if not s_info or not s_info.get('role'):
             return rows
-        df = statement.to_dataframe() if hasattr(statement, 'to_dataframe') else None
-        if df is None or df.empty:
-            return rows
-        for _, row in df.iterrows():
-            label = row.get('label') or row.get('concept') or str(row.name)
-            value = row.get('value')
-            period_end = row.get('end_date') or row.get('period')
-            if value is not None and period_end is not None:
+        stmt_list = xbrl.get_statement(s_info['role'])
+        for item in stmt_list:
+            label = item.get('label', '')
+            values = item.get('values', {})
+            if not values or label.endswith('[Abstract]') or label.endswith('[Table]') or label.endswith('[Axis]'):
+                continue
+            for period_key, value in values.items():
+                period_end = _parse_period_end(period_key)
+                if period_end is None or value is None:
+                    continue
                 try:
                     rows.append((
-                        company_key, str(period_end), statement_type,
+                        company_key, period_end, stmt_label,
                         label, str(filing_date), filing_type, float(value)
                     ))
                 except (ValueError, TypeError):
                     pass
     except Exception as e:
-        print(f"  Error extracting {statement_type}: {e}")
+        print(f"  Error extracting {stmt_label}: {e}")
     return rows
 
 
@@ -55,23 +64,31 @@ def populate_sec_financials():
             try:
                 company = Company(ticker)
                 for filing_type in ['10-K', '10-Q']:
-                    filings = company.get_filings(form=filing_type).latest(2)
-                    for filing in filings:
-                        filing_date = str(filing.filing_date)
-                        xbrl = filing.xbrl()
-                        if xbrl is None:
-                            continue
-                        for stmt_type, method in STATEMENT_METHODS.items():
-                            rows = _extract_statement(
-                                xbrl, method, stmt_type,
-                                company_key, filing_date, filing_type
-                            )
-                            all_rows.extend(rows)
-                print(f"  {ticker}: extracted {len([r for r in all_rows if r[0] == company_key])} line items")
+                    filing = company.get_filings(form=filing_type, amendments=False).latest(1)
+                    if filing is None:
+                        continue
+                    filing_date = str(filing.filing_date)
+                    xbrl = filing.xbrl()
+                    if xbrl is None:
+                        continue
+                    for stmt_key, stmt_label in STATEMENT_TYPES.items():
+                        rows = _extract_statement(
+                            xbrl, stmt_key, stmt_label,
+                            company_key, filing_date, filing_type
+                        )
+                        all_rows.extend(rows)
+                ticker_count = len([r for r in all_rows if r[0] == company_key])
+                print(f"  {ticker}: extracted {ticker_count} line items")
             except Exception as e:
                 print(f"Error processing {ticker}: {e}")
 
         if all_rows:
+            # Deduplicate: keep last value per (company_key, period_end, statement_type, line_item)
+            seen = {}
+            for row in all_rows:
+                key = (row[0], row[1], row[2], row[3])
+                seen[key] = row
+            all_rows = list(seen.values())
             batch_insert(conn, UPSERT_SEC_FINANCIALS_SQL, all_rows)
 
     print(f"SEC financials updated: {len(all_rows)} line items across {len(tickers)} tickers")
