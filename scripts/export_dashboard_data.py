@@ -1,14 +1,24 @@
 """Export data from TimescaleDB to static JSON files for the GitHub Pages dashboard."""
 import os
 import json
+import math
 from datetime import date, timedelta
 from db_utils import get_db_connection
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'site', 'data')
 
 
+def _clean(val):
+    """Replace NaN/Inf with None for valid JSON."""
+    if val is None:
+        return None
+    if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+        return None
+    return val
+
+
 def _serialize(rows, columns):
-    return [dict(zip(columns, row)) for row in rows]
+    return [{k: _clean(v) for k, v in zip(columns, row)} for row in rows]
 
 
 def export_price_summary(conn):

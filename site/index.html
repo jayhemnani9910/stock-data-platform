@@ -149,6 +149,89 @@
   </div>
 </section>
 
+<!-- DEMO -->
+<section class="section" id="demo">
+  <div class="container">
+    <span class="section-label">// See It Running</span>
+    <h2 class="section-title">In Action</h2>
+    <p class="section-desc">7 Docker services, 23 Airflow DAGs, and real data flowing through the pipeline.</p>
+
+    <div class="dashboard-grid" style="gap: var(--space-lg);">
+
+      <div class="card fade-in">
+        <div class="card-header">
+          <span class="card-title">Docker Services</span>
+          <span class="card-badge">7 running</span>
+        </div>
+        <div class="code-block" style="border: none; padding: var(--space-sm); background: transparent; font-size: 0.75rem;">
+          <code style="white-space: pre; line-height: 1.8;">
+<span class="cmd">$</span> docker compose ps
+<span style="color: var(--text-muted);">NAME                          STATUS    PORTS</span>
+<span style="color: var(--green);">airflow-scheduler</span>             Up 4h     8080/tcp
+<span style="color: var(--green);">airflow-webserver</span>             Up 4h     0.0.0.0:<span style="color:var(--cyan)">8081</span>→8080
+<span style="color: var(--green);">stock-data-platform-kafka</span>     Up 4h     0.0.0.0:<span style="color:var(--cyan)">9092</span>→9092
+<span style="color: var(--green);">kafka-consumer</span>                Up 4h
+<span style="color: var(--green);">kafka-producer</span>                Up 4h
+<span style="color: var(--green);">zookeeper</span>                     Up 4h     0.0.0.0:<span style="color:var(--cyan)">2181</span>→2181
+<span style="color: var(--green);">timescaledb</span>                   Up 4h     0.0.0.0:<span style="color:var(--cyan)">5432</span>→5432</code>
+        </div>
+      </div>
+
+      <div class="card fade-in">
+        <div class="card-header">
+          <span class="card-title">Live Query Output</span>
+          <span class="card-badge">TimescaleDB</span>
+        </div>
+        <div class="code-block" style="border: none; padding: var(--space-sm); background: transparent; font-size: 0.75rem;">
+          <code style="white-space: pre; line-height: 1.8;">
+<span class="cmd">$</span> psql <span class="flag">-c</span> <span style="color:var(--amber)">"SELECT ticker, date, close, volume
+   FROM fact_stock_price_daily
+   ORDER BY date DESC LIMIT 6;"</span>
+
+<span style="color: var(--text-muted);"> ticker │    date    │   close    │  volume</span>
+<span style="color: var(--text-muted);">────────┼────────────┼────────────┼──────────</span>
+ <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-13 │ <span style="color:var(--green)">$250.12</span>   │ 36.9M
+ <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-12 │ <span style="color:var(--green)">$255.76</span>   │ 40.8M
+ <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-11 │ <span style="color:var(--green)">$260.81</span>   │ 26.2M
+ <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-10 │ <span style="color:var(--green)">$260.83</span>   │ 30.6M
+ <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-09 │ <span style="color:var(--green)">$259.88</span>   │ 38.2M
+ <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-06 │ <span style="color:var(--green)">$257.46</span>   │ 41.1M</code>
+        </div>
+      </div>
+
+      <div class="card card-full fade-in">
+        <div class="card-header">
+          <span class="card-title">Data Pipeline Summary</span>
+          <span class="card-badge">All Sources</span>
+        </div>
+        <div class="code-block" style="border: none; padding: var(--space-sm); background: transparent; font-size: 0.75rem;">
+          <code style="white-space: pre; line-height: 1.8;">
+<span class="cmd">$</span> psql <span class="flag">-c</span> <span style="color:var(--amber)">"SELECT table_name, row_count FROM (
+   SELECT 'fact_stock_price_daily' as table_name, COUNT(*) as row_count FROM fact_stock_price_daily
+   UNION ALL SELECT 'fact_company_fundamentals', COUNT(*) FROM fact_company_fundamentals
+   UNION ALL SELECT 'fact_earnings', COUNT(*) FROM fact_earnings
+   UNION ALL SELECT 'fact_sec_financials', COUNT(*) FROM fact_sec_financials
+   UNION ALL SELECT 'fact_macro_data', COUNT(*) FROM fact_macro_data
+   ) t ORDER BY table_name;"</span>
+
+<span style="color: var(--text-muted);">         table_name          │ row_count</span>
+<span style="color: var(--text-muted);">─────────────────────────────┼───────────</span>
+ <span style="color:var(--text-primary)">fact_company_fundamentals</span>   │ <span style="color:var(--green)">       10</span>    <span style="color:var(--text-muted)">← yfinance .info</span>
+ <span style="color:var(--text-primary)">fact_earnings</span>               │ <span style="color:var(--green)">      240</span>    <span style="color:var(--text-muted)">← yfinance earnings</span>
+ <span style="color:var(--text-primary)">fact_macro_data</span>             │ <span style="color:var(--green)">    3,068</span>    <span style="color:var(--text-muted)">← FRED API</span>
+ <span style="color:var(--text-primary)">fact_sec_financials</span>         │ <span style="color:var(--green)">    5,444</span>    <span style="color:var(--text-muted)">← SEC EDGAR</span>
+ <span style="color:var(--text-primary)">fact_stock_price_daily</span>      │ <span style="color:var(--green)">    6,281</span>    <span style="color:var(--text-muted)">← yfinance OHLCV</span></code>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="text-align: center; margin-top: var(--space-xl);">
+      <a href="dashboard.html" class="btn btn-primary">View Live Dashboard &rarr;</a>
+    </div>
+  </div>
+</section>
+
 <!-- ARCHITECTURE -->
 <section class="section" id="architecture">
   <div class="container">
