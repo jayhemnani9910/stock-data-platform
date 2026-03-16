@@ -1,0 +1,112 @@
+[
+  {
+    "ticker": "AAPL",
+    "market_cap": 3676245065728,
+    "trailing_pe": 31.660759,
+    "forward_pe": 26.906572,
+    "price_to_book": 41.700565,
+    "dividend_yield": 0.42,
+    "beta": 1.116,
+    "week_52_high": 288.62,
+    "week_52_low": 169.21
+  },
+  {
+    "ticker": "AMZN",
+    "market_cap": 2229321072640,
+    "trailing_pe": 29.00419,
+    "forward_pe": 22.230072,
+    "price_to_book": 5.421344,
+    "dividend_yield": null,
+    "beta": 1.42,
+    "week_52_high": 258.6,
+    "week_52_low": 161.38
+  },
+  {
+    "ticker": "DIS",
+    "market_cap": 176079601664,
+    "trailing_pe": 14.622975,
+    "forward_pe": 13.496999,
+    "price_to_book": 1.6255997,
+    "dividend_yield": 1.51,
+    "beta": 1.443,
+    "week_52_high": 124.69,
+    "week_52_low": 80.1
+  },
+  {
+    "ticker": "GOOG",
+    "market_cap": 3646761730048,
+    "trailing_pe": 27.861368,
+    "forward_pe": 22.477924,
+    "price_to_book": 8.775361,
+    "dividend_yield": 0.28,
+    "beta": 1.112,
+    "week_52_high": 350.15,
+    "week_52_low": 142.66
+  },
+  {
+    "ticker": "JPM",
+    "market_cap": 764446900224,
+    "trailing_pe": 14.164918,
+    "forward_pe": 12.06522,
+    "price_to_book": 2.232022,
+    "dividend_yield": 2.12,
+    "beta": 1.059,
+    "week_52_high": 337.25,
+    "week_52_low": 202.16
+  },
+  {
+    "ticker": "META",
+    "market_cap": 1552413491200,
+    "trailing_pe": 26.104212,
+    "forward_pe": 17.104515,
+    "price_to_book": 7.147217,
+    "dividend_yield": 0.34,
+    "beta": 1.279,
+    "week_52_high": 796.25,
+    "week_52_low": 479.8
+  },
+  {
+    "ticker": "MSFT",
+    "market_cap": 2939877064704,
+    "trailing_pe": 24.752815,
+    "forward_pe": 20.990755,
+    "price_to_book": 7.5178175,
+    "dividend_yield": 0.92,
+    "beta": 1.108,
+    "week_52_high": 555.45,
+    "week_52_low": 344.79
+  },
+  {
+    "ticker": "NFLX",
+    "market_cap": 404294467584,
+    "trailing_pe": 37.671936,
+    "forward_pe": 24.833504,
+    "price_to_book": 15.118972,
+    "dividend_yield": null,
+    "beta": 1.714,
+    "week_52_high": 134.115,
+    "week_52_low": 75.01
+  },
+  {
+    "ticker": "NVDA",
+    "market_cap": 4380976218112,
+    "trailing_pe": 36.785713,
+    "forward_pe": 16.682323,
+    "price_to_book": 27.85074,
+    "dividend_yield": 0.02,
+    "beta": 2.375,
+    "week_52_high": 212.19,
+    "week_52_low": 86.62
+  },
+  {
+    "ticker": "TSLA",
+    "market_cap": 1467951349760,
+    "trailing_pe": 355.63635,
+    "forward_pe": 139.19579,
+    "price_to_book": 17.865461,
+    "dividend_yield": null,
+    "beta": 1.926,
+    "week_52_high": 498.83,
+    "week_52_low": 214.25
+  }
+]

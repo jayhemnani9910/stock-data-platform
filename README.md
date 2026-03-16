@@ -8,6 +8,8 @@
 
 **Real-time stock data pipeline with Kafka streaming, Airflow orchestration, and a TimescaleDB star-schema warehouse.**
 
+**[View Live Site](https://jayhemnani9910.github.io/stock-data-platform/)** | **[Dashboard](https://jayhemnani9910.github.io/stock-data-platform/dashboard.html)**
+
 Tracks 10 major tickers (AAPL, AMZN, GOOG, META, MSFT, NFLX, NVDA, TSLA, JPM, DIS) through a fully containerized pipeline — from live market data ingestion to aggregated analytics.
 
 ---
