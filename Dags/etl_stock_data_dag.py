@@ -76,6 +76,7 @@ def extract_data(ticker, ti):
         df = yf.download(ticker, start=start_date, end=end_date, progress=False)
         if df.empty:
             raise ValueError("Downloaded dataframe is empty.")
+        df = _normalize_columns(df, ticker)
         run_suffix = ti.ts_nodash or datetime.utcnow().strftime("%Y%m%dT%H%M%S")
         raw_path = _stage_path_for_run(ticker, "raw", run_suffix)
         with gzip.open(raw_path, "wt", encoding="utf-8") as f:
@@ -92,7 +93,6 @@ def transform_data(ticker, ti):
         if not raw_path:
             raise ValueError("Missing raw dataframe path.")
         df = pd.read_json(raw_path, orient='split', compression='gzip')
-        df = _normalize_columns(df, ticker)
         missing_cols = [col for col in STANDARD_COLS if col not in df.columns]
         if missing_cols:
             raise ValueError(f"Missing columns after normalization: {missing_cols}")
