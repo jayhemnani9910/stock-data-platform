@@ -153,81 +153,45 @@
     <h2 class="section-title">Use Cases</h2>
     <p class="section-desc">Every question below can be answered with a single SQL query against the warehouse.</p>
 
-    <div class="dashboard-grid" style="gap: var(--space-lg);">
+    <div class="use-case-grid">
 
-      <div class="card fade-in">
-        <div class="card-header">
-          <span class="card-title">Performance Comparison</span>
-        </div>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-md);">
-          Compare any two tickers over any time range. See daily close prices side by side, identify divergences, and spot trends.
-        </p>
-        <div class="code-block" style="border: none; padding: var(--space-sm); background: var(--bg-surface); font-size: 0.75rem;">
-          <code style="white-space: pre; line-height: 1.8; color: var(--text-secondary);">
-<span style="color:var(--amber)">"How has NVDA performed vs AAPL in 2026?"</span>
-
-<span style="color: var(--text-muted);">  ticker │     jan    │     feb    │     mar</span>
-<span style="color: var(--text-muted);">  ───────┼────────────┼────────────┼──────────</span>
-   <span style="color:var(--text-primary)">NVDA</span>   │ <span style="color:var(--green)">+8.2%</span>     │ <span style="color:var(--red)">-3.1%</span>     │ <span style="color:var(--green)">+5.7%</span>
-   <span style="color:var(--text-primary)">AAPL</span>   │ <span style="color:var(--green)">+2.1%</span>     │ <span style="color:var(--red)">-1.8%</span>     │ <span style="color:var(--green)">+0.9%</span></code>
-        </div>
+      <div class="use-case-card fade-in">
+        <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin-bottom: var(--space-md);">Performance Comparison</h3>
+        <div class="use-case-question">"How has NVDA performed vs AAPL in 2026?"</div>
+        <div class="use-case-result">
+<span class="header-row">ticker    jan       feb       mar</span>
+<span class="data-row"><span>NVDA</span>     <span style="color:var(--green)">+8.2%</span>    <span style="color:var(--red)">-3.1%</span>    <span style="color:var(--green)">+5.7%</span></span>
+<span class="data-row"><span>AAPL</span>     <span style="color:var(--green)">+2.1%</span>    <span style="color:var(--red)">-1.8%</span>    <span style="color:var(--green)">+0.9%</span></span></div>
       </div>
 
-      <div class="card fade-in">
-        <div class="card-header">
-          <span class="card-title">Earnings Analysis</span>
-        </div>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-md);">
-          Instantly see which companies consistently beat analyst expectations &mdash; and which disappoint.
-        </p>
-        <div class="code-block" style="border: none; padding: var(--space-sm); background: var(--bg-surface); font-size: 0.75rem;">
-          <code style="white-space: pre; line-height: 1.8; color: var(--text-secondary);">
-<span style="color:var(--amber)">"Who beat earnings estimates the most?"</span>
-
-<span style="color: var(--text-muted);">  ticker │ avg surprise │ beat rate</span>
-<span style="color: var(--text-muted);">  ───────┼──────────────┼──────────</span>
-   <span style="color:var(--text-primary)">NFLX</span>   │ <span style="color:var(--green)">+12.4%</span>       │ <span style="color:var(--green)">100%</span>
-   <span style="color:var(--text-primary)">AAPL</span>   │ <span style="color:var(--green)">+4.8%</span>        │ <span style="color:var(--green)">100%</span>
-   <span style="color:var(--text-primary)">MSFT</span>   │ <span style="color:var(--green)">+3.2%</span>        │ <span style="color:var(--green)">100%</span></code>
-        </div>
+      <div class="use-case-card fade-in">
+        <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin-bottom: var(--space-md);">Earnings Analysis</h3>
+        <div class="use-case-question">"Who beat earnings estimates the most?"</div>
+        <div class="use-case-result">
+<span class="header-row">ticker   avg surprise   beat rate</span>
+<span class="data-row"><span>NFLX</span>    <span style="color:var(--green)">+12.4%</span>        <span style="color:var(--green)">100%</span></span>
+<span class="data-row"><span>AAPL</span>    <span style="color:var(--green)">+4.8%</span>         <span style="color:var(--green)">100%</span></span>
+<span class="data-row"><span>MSFT</span>    <span style="color:var(--green)">+3.2%</span>         <span style="color:var(--green)">100%</span></span></div>
       </div>
 
-      <div class="card fade-in">
-        <div class="card-header">
-          <span class="card-title">Macro Correlation</span>
-        </div>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-md);">
-          Join stock prices with Federal Reserve data. See how rate changes impact different sectors.
-        </p>
-        <div class="code-block" style="border: none; padding: var(--space-sm); background: var(--bg-surface); font-size: 0.75rem;">
-          <code style="white-space: pre; line-height: 1.8; color: var(--text-secondary);">
-<span style="color:var(--amber)">"Tech stocks vs. Fed rate since 2023"</span>
-
-<span style="color: var(--text-muted);">  quarter │ fed_rate │ tech_avg_return</span>
-<span style="color: var(--text-muted);">  ────────┼──────────┼────────────────</span>
-   <span style="color:var(--text-primary)">2025-Q4</span> │ <span style="color:var(--cyan)">3.64%</span>    │ <span style="color:var(--green)">+6.8%</span>
-   <span style="color:var(--text-primary)">2025-Q3</span> │ <span style="color:var(--cyan)">4.25%</span>    │ <span style="color:var(--green)">+3.2%</span>
-   <span style="color:var(--text-primary)">2025-Q2</span> │ <span style="color:var(--cyan)">4.50%</span>    │ <span style="color:var(--red)">-1.4%</span></code>
-        </div>
+      <div class="use-case-card fade-in">
+        <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin-bottom: var(--space-md);">Macro Correlation</h3>
+        <div class="use-case-question">"Tech stocks vs. Fed rate since 2023"</div>
+        <div class="use-case-result">
+<span class="header-row">quarter   fed rate   tech return</span>
+<span class="data-row"><span>2025-Q4</span>   <span style="color:var(--cyan)">3.64%</span>     <span style="color:var(--green)">+6.8%</span></span>
+<span class="data-row"><span>2025-Q3</span>   <span style="color:var(--cyan)">4.25%</span>     <span style="color:var(--green)">+3.2%</span></span>
+<span class="data-row"><span>2025-Q2</span>   <span style="color:var(--cyan)">4.50%</span>     <span style="color:var(--red)">-1.4%</span></span></div>
       </div>
 
-      <div class="card fade-in">
-        <div class="card-header">
-          <span class="card-title">Financial Health</span>
-        </div>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-md);">
-          Pull revenue, net income, and total assets straight from SEC filings. Compare across companies and quarters.
-        </p>
-        <div class="code-block" style="border: none; padding: var(--space-sm); background: var(--bg-surface); font-size: 0.75rem;">
-          <code style="white-space: pre; line-height: 1.8; color: var(--text-secondary);">
-<span style="color:var(--amber)">"AAPL revenue trend (10-K filings)"</span>
-
-<span style="color: var(--text-muted);">  fiscal_year │ revenue      │ net_income</span>
-<span style="color: var(--text-muted);">  ────────────┼──────────────┼───────────</span>
-   <span style="color:var(--text-primary)">FY 2025</span>    │ <span style="color:var(--green)">$416.2B</span>     │ <span style="color:var(--green)">$112.0B</span>
-   <span style="color:var(--text-primary)">FY 2024</span>    │ <span style="color:var(--green)">$391.0B</span>     │ <span style="color:var(--green)">$93.7B</span>
-   <span style="color:var(--text-primary)">FY 2023</span>    │ <span style="color:var(--green)">$383.3B</span>     │ <span style="color:var(--green)">$97.0B</span></code>
-        </div>
+      <div class="use-case-card fade-in">
+        <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin-bottom: var(--space-md);">SEC Filings</h3>
+        <div class="use-case-question">"AAPL revenue trend from 10-K filings"</div>
+        <div class="use-case-result">
+<span class="header-row">year      revenue       net income</span>
+<span class="data-row"><span>FY 2025</span>   <span style="color:var(--green)">$416.2B</span>      <span style="color:var(--green)">$112.0B</span></span>
+<span class="data-row"><span>FY 2024</span>   <span style="color:var(--green)">$391.0B</span>      <span style="color:var(--green)">$93.7B</span></span>
+<span class="data-row"><span>FY 2023</span>   <span style="color:var(--green)">$383.3B</span>      <span style="color:var(--green)">$97.0B</span></span></div>
       </div>
 
     </div>
