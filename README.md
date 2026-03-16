@@ -47,10 +47,17 @@ Market Data API
 |-------|------|-------------|
 | `dim_company` | Dimension | Ticker, company name, sector, industry, exchange (SCD Type 2) |
 | `dim_date` | Dimension | Year, quarter, month, day, weekend flag |
+| `dim_macro_indicator` | Dimension | FRED macro series metadata (rates, CPI, GDP, unemployment) |
 | `fact_stock_price_daily` | Fact | OHLCV data per ticker per day |
 | `fact_stock_price_monthly` | Fact | Aggregated monthly averages and total volume |
+| `fact_company_fundamentals` | Fact | Daily snapshot: market cap, PE ratios, dividends, beta |
+| `fact_earnings` | Fact | Quarterly EPS: estimate vs actual, surprise % |
+| `fact_sec_financials` | Fact | SEC filing line items: income, balance sheet, cash flow (EAV) |
+| `fact_macro_data` | Fact | FRED macro time series (fed funds rate, CPI, unemployment, GDP) |
 
 Built on **TimescaleDB** for time-series optimized queries on top of PostgreSQL 14.
+
+**Data Sources**: yfinance (prices + company info + earnings), SEC EDGAR via EdgarTools (10-K/10-Q filings), FRED via fredapi (macro indicators).
 
 ---
 
@@ -78,6 +85,10 @@ Built on **TimescaleDB** for time-series optimized queries on top of PostgreSQL 
 | `populate_fact_stock_price` | On-demand | Seed sample OHLCV facts (test data) |
 | `csv_export_dag` | Triggered | Export last 30 days to CSV per ticker |
 | `monthly_aggregate_dag` | Monthly | Compute monthly price aggregations |
+| `fundamentals_daily` | Daily | Fetch company fundamentals (market cap, PE, dividends) |
+| `earnings_weekly` | Weekly | Fetch earnings dates and EPS surprises |
+| `sec_financials_quarterly` | Quarterly | Fetch SEC 10-K/10-Q financial statements |
+| `macro_daily` | Daily | Fetch FRED macro indicators (rates, CPI, GDP) |
 
 ---
 
@@ -110,6 +121,10 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── dag_config.py              # Shared DAG defaults and ticker loading
 │   ├── etl_stock_data_dag.py
 │   ├── populate_dags.py           # Dimension and fact table population DAGs
+│   ├── fundamentals_dag.py        # Daily company fundamentals
+│   ├── earnings_dag.py            # Weekly earnings data
+│   ├── sec_financials_dag.py      # Quarterly SEC filings
+│   ├── macro_dag.py               # Daily macro indicators
 │   ├── monthly_aggregate_dag.py
 │   └── tickers.txt                # Tracked ticker symbols
 ├── SQL/
@@ -119,7 +134,11 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── db_utils.py                # Shared database utilities
 │   ├── populate_dim_company.py
 │   ├── populate_dim_date.py
-│   └── populate_fact_stock_price.py
+│   ├── populate_fact_stock_price.py
+│   ├── populate_company_fundamentals.py
+│   ├── populate_earnings.py
+│   ├── populate_sec_financials.py
+│   └── populate_macro_data.py
 ├── docs/                          # Architecture diagrams (D2)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB
 ├── live_from_kafka.py             # Real-time Kafka producer

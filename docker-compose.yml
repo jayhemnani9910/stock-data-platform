@@ -15,6 +15,8 @@ x-airflow-env: &airflow-env
   AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:?Set AIRFLOW__CORE__FERNET_KEY in .env}
   AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
   AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+  FRED_API_KEY: ${FRED_API_KEY:-}
+  EDGAR_IDENTITY: ${EDGAR_IDENTITY:-StockDataPlatform user@example.com}
 
 x-airflow-volumes: &airflow-volumes
   - ./Dags:/opt/airflow/dags

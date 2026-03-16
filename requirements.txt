@@ -3,3 +3,5 @@ pandas
 numpy
 kafka-python
 psycopg2-binary
+edgartools
+fredapi

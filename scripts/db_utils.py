@@ -73,3 +73,59 @@ def batch_insert(conn, sql, records, page_size=1000):
 
 def upsert_stock_prices(conn, rows, page_size=500):
     batch_insert(conn, UPSERT_STOCK_PRICE_SQL, rows, page_size=page_size)
+
+
+UPSERT_FUNDAMENTALS_SQL = """
+    INSERT INTO fact_company_fundamentals
+        (date, company_key, market_cap, trailing_pe, forward_pe, price_to_book,
+         dividend_rate, dividend_yield, beta, week_52_high, week_52_low, employees, business_summary)
+    VALUES %s
+    ON CONFLICT (date, company_key) DO UPDATE
+    SET market_cap = EXCLUDED.market_cap,
+        trailing_pe = EXCLUDED.trailing_pe,
+        forward_pe = EXCLUDED.forward_pe,
+        price_to_book = EXCLUDED.price_to_book,
+        dividend_rate = EXCLUDED.dividend_rate,
+        dividend_yield = EXCLUDED.dividend_yield,
+        beta = EXCLUDED.beta,
+        week_52_high = EXCLUDED.week_52_high,
+        week_52_low = EXCLUDED.week_52_low,
+        employees = EXCLUDED.employees,
+        business_summary = EXCLUDED.business_summary
+"""
+
+UPSERT_EARNINGS_SQL = """
+    INSERT INTO fact_earnings (report_date, company_key, eps_estimate, eps_actual, surprise_pct)
+    VALUES %s
+    ON CONFLICT (report_date, company_key) DO UPDATE
+    SET eps_estimate = EXCLUDED.eps_estimate,
+        eps_actual = EXCLUDED.eps_actual,
+        surprise_pct = EXCLUDED.surprise_pct
+"""
+
+UPSERT_SEC_FINANCIALS_SQL = """
+    INSERT INTO fact_sec_financials
+        (company_key, period_end, statement_type, line_item, filing_date, filing_type, value)
+    VALUES %s
+    ON CONFLICT (company_key, period_end, statement_type, line_item) DO UPDATE
+    SET filing_date = EXCLUDED.filing_date,
+        filing_type = EXCLUDED.filing_type,
+        value = EXCLUDED.value
+"""
+
+UPSERT_MACRO_DATA_SQL = """
+    INSERT INTO fact_macro_data (date, indicator_key, value)
+    VALUES %s
+    ON CONFLICT (date, indicator_key) DO UPDATE
+    SET value = EXCLUDED.value
+"""
+
+
+def get_indicator_key(conn, series_id):
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT indicator_key FROM dim_macro_indicator WHERE series_id = %s",
+            (series_id,),
+        )
+        row = cur.fetchone()
+        return row[0] if row else None
