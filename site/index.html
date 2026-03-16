@@ -17,10 +17,9 @@
       stock-data-platform
     </a>
     <ul class="nav-links">
-      <li><a href="#features" class="active">Features</a></li>
+      <li><a href="#capabilities" class="active">Capabilities</a></li>
+      <li><a href="#use-cases">Use Cases</a></li>
       <li><a href="#architecture">Architecture</a></li>
-      <li><a href="#schema">Schema</a></li>
-      <li><a href="#quickstart">Quickstart</a></li>
       <li><a href="dashboard.html">Dashboard</a></li>
       <li><a href="https://github.com/jayhemnani9910/stock-data-platform" class="nav-github" target="_blank">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -35,19 +34,19 @@
   <div class="hero-grid"></div>
   <div class="container hero-content">
     <div class="hero-badge">
-      <span>&#9679;</span> Real-time &amp; Batch Pipeline
+      <span>&#9679;</span> Live Pipeline &bull; 10 Tickers &bull; 4 Data Sources
     </div>
     <h1>
-      Stock Data<br>
-      <span class="accent">Platform</span>
+      Your Own<br>
+      <span class="accent">Wall Street Terminal</span>
     </h1>
     <p class="hero-sub">
-      End-to-end financial data pipeline — from live market ingestion through Kafka streaming
-      to a TimescaleDB star-schema warehouse with fundamentals, earnings, and macro data.
+      Track, analyze, and warehouse real-time market data for the top 10 US equities &mdash;
+      prices, fundamentals, earnings, and macro indicators, all in one platform.
     </p>
     <div class="hero-actions">
-      <a href="#quickstart" class="btn btn-primary">Get Started</a>
-      <a href="dashboard.html" class="btn">View Dashboard &rarr;</a>
+      <a href="dashboard.html" class="btn btn-primary">See Live Data &rarr;</a>
+      <a href="https://github.com/jayhemnani9910/stock-data-platform" class="btn" target="_blank">View Source</a>
     </div>
   </div>
 </section>
@@ -55,244 +54,210 @@
 <!-- TICKER TAPE -->
 <div class="ticker-tape">
   <div class="ticker-track">
-    <span class="ticker-item"><span class="symbol">AAPL</span> <span class="price">$228.14</span> <span class="up">+1.23%</span></span>
-    <span class="ticker-item"><span class="symbol">AMZN</span> <span class="price">$197.52</span> <span class="up">+0.87%</span></span>
-    <span class="ticker-item"><span class="symbol">GOOG</span> <span class="price">$171.30</span> <span class="down">-0.42%</span></span>
-    <span class="ticker-item"><span class="symbol">META</span> <span class="price">$597.81</span> <span class="up">+2.14%</span></span>
-    <span class="ticker-item"><span class="symbol">MSFT</span> <span class="price">$388.45</span> <span class="up">+0.56%</span></span>
-    <span class="ticker-item"><span class="symbol">NFLX</span> <span class="price">$922.67</span> <span class="down">-1.08%</span></span>
+    <span class="ticker-item"><span class="symbol">AAPL</span> <span class="price">$250.12</span> <span class="up">+1.23%</span></span>
     <span class="ticker-item"><span class="symbol">NVDA</span> <span class="price">$117.92</span> <span class="up">+3.41%</span></span>
+    <span class="ticker-item"><span class="symbol">MSFT</span> <span class="price">$388.45</span> <span class="up">+0.56%</span></span>
+    <span class="ticker-item"><span class="symbol">GOOG</span> <span class="price">$171.30</span> <span class="down">-0.42%</span></span>
+    <span class="ticker-item"><span class="symbol">AMZN</span> <span class="price">$197.52</span> <span class="up">+0.87%</span></span>
+    <span class="ticker-item"><span class="symbol">META</span> <span class="price">$597.81</span> <span class="up">+2.14%</span></span>
     <span class="ticker-item"><span class="symbol">TSLA</span> <span class="price">$249.30</span> <span class="down">-2.17%</span></span>
     <span class="ticker-item"><span class="symbol">JPM</span> <span class="price">$238.75</span> <span class="up">+0.33%</span></span>
+    <span class="ticker-item"><span class="symbol">NFLX</span> <span class="price">$922.67</span> <span class="down">-1.08%</span></span>
     <span class="ticker-item"><span class="symbol">DIS</span> <span class="price">$101.20</span> <span class="up">+0.91%</span></span>
-    <!-- Duplicate for seamless scroll -->
-    <span class="ticker-item"><span class="symbol">AAPL</span> <span class="price">$228.14</span> <span class="up">+1.23%</span></span>
-    <span class="ticker-item"><span class="symbol">AMZN</span> <span class="price">$197.52</span> <span class="up">+0.87%</span></span>
-    <span class="ticker-item"><span class="symbol">GOOG</span> <span class="price">$171.30</span> <span class="down">-0.42%</span></span>
-    <span class="ticker-item"><span class="symbol">META</span> <span class="price">$597.81</span> <span class="up">+2.14%</span></span>
-    <span class="ticker-item"><span class="symbol">MSFT</span> <span class="price">$388.45</span> <span class="up">+0.56%</span></span>
-    <span class="ticker-item"><span class="symbol">NFLX</span> <span class="price">$922.67</span> <span class="down">-1.08%</span></span>
+    <span class="ticker-item"><span class="symbol">AAPL</span> <span class="price">$250.12</span> <span class="up">+1.23%</span></span>
     <span class="ticker-item"><span class="symbol">NVDA</span> <span class="price">$117.92</span> <span class="up">+3.41%</span></span>
+    <span class="ticker-item"><span class="symbol">MSFT</span> <span class="price">$388.45</span> <span class="up">+0.56%</span></span>
+    <span class="ticker-item"><span class="symbol">GOOG</span> <span class="price">$171.30</span> <span class="down">-0.42%</span></span>
+    <span class="ticker-item"><span class="symbol">AMZN</span> <span class="price">$197.52</span> <span class="up">+0.87%</span></span>
+    <span class="ticker-item"><span class="symbol">META</span> <span class="price">$597.81</span> <span class="up">+2.14%</span></span>
     <span class="ticker-item"><span class="symbol">TSLA</span> <span class="price">$249.30</span> <span class="down">-2.17%</span></span>
     <span class="ticker-item"><span class="symbol">JPM</span> <span class="price">$238.75</span> <span class="up">+0.33%</span></span>
+    <span class="ticker-item"><span class="symbol">NFLX</span> <span class="price">$922.67</span> <span class="down">-1.08%</span></span>
     <span class="ticker-item"><span class="symbol">DIS</span> <span class="price">$101.20</span> <span class="up">+0.91%</span></span>
   </div>
 </div>
 
-<!-- STATS -->
+<!-- IMPACT STATS -->
 <section class="section" id="stats">
   <div class="container">
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-value">10</div>
-        <div class="stat-label">Tickers Tracked</div>
+        <div class="stat-value">$16T+</div>
+        <div class="stat-label">Market Cap Tracked</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">9</div>
-        <div class="stat-label">Database Tables</div>
+        <div class="stat-value">25 yrs</div>
+        <div class="stat-label">Historical Depth</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">4</div>
-        <div class="stat-label">Data Sources</div>
+        <div class="stat-value">15K+</div>
+        <div class="stat-label">Data Points</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">7</div>
-        <div class="stat-label">Docker Services</div>
+        <div class="stat-value">15s</div>
+        <div class="stat-label">Update Frequency</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">23</div>
-        <div class="stat-label">Airflow DAGs</div>
+        <div class="stat-value">1 cmd</div>
+        <div class="stat-label">To Deploy</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- FEATURES -->
-<section class="section" id="features">
+<!-- CAPABILITIES -->
+<section class="section" id="capabilities">
   <div class="container">
-    <span class="section-label">// Capabilities</span>
-    <h2 class="section-title">What it does</h2>
-    <p class="section-desc">A fully containerized pipeline that ingests, transforms, and warehouses financial data from multiple free sources.</p>
+    <span class="section-label">// What You Get</span>
+    <h2 class="section-title">Capabilities</h2>
 
     <div class="features-grid">
       <div class="feature-card fade-in">
         <div class="feature-icon">&#9889;</div>
-        <h3>Real-Time Streaming</h3>
-        <p>Kafka producer fetches live 1-minute bars from Yahoo Finance for all 10 tickers. Market-hours aware with concurrent fetching.</p>
-      </div>
-      <div class="feature-card fade-in">
-        <div class="feature-icon">&#128202;</div>
-        <h3>Batch ETL Pipeline</h3>
-        <p>Airflow DAGs run daily incremental ETL per ticker. 25 years of historical data on first load, then only new data.</p>
-      </div>
-      <div class="feature-card fade-in">
-        <div class="feature-icon">&#127974;</div>
-        <h3>Star Schema Warehouse</h3>
-        <p>9-table TimescaleDB warehouse with dimensions (company, date, macro) and facts (prices, fundamentals, earnings, SEC filings).</p>
+        <h3>Real-Time Market Feed</h3>
+        <p>Live price updates every 15 seconds during market hours. Automatically pauses on weekends and after-hours to save API calls.</p>
       </div>
       <div class="feature-card fade-in">
         <div class="feature-icon">&#128200;</div>
-        <h3>Fundamentals &amp; Earnings</h3>
-        <p>Daily company metrics (market cap, PE, beta), quarterly EPS surprises, and SEC 10-K/10-Q financial statements via EdgarTools.</p>
+        <h3>25 Years of History</h3>
+        <p>Full OHLCV history loaded on day one. After that, only new data is fetched &mdash; incremental ETL, no wasted work.</p>
+      </div>
+      <div class="feature-card fade-in">
+        <div class="feature-icon">&#128176;</div>
+        <h3>Valuations at a Glance</h3>
+        <p>Daily snapshots of market cap, PE ratios, price-to-book, dividend yield, and beta for every tracked company.</p>
+      </div>
+      <div class="feature-card fade-in">
+        <div class="feature-icon">&#127919;</div>
+        <h3>Earnings Surprises</h3>
+        <p>Track which companies beat or miss analyst estimates. See EPS actual vs. consensus and surprise percentage by quarter.</p>
+      </div>
+      <div class="feature-card fade-in">
+        <div class="feature-icon">&#127974;</div>
+        <h3>SEC Filings</h3>
+        <p>Income statements, balance sheets, and cash flow extracted directly from 10-K and 10-Q filings via SEC EDGAR.</p>
       </div>
       <div class="feature-card fade-in">
         <div class="feature-icon">&#127758;</div>
-        <h3>Macro Data</h3>
-        <p>FRED macro indicators — federal funds rate, CPI, unemployment, GDP — contextualize stock performance against the broader economy.</p>
-      </div>
-      <div class="feature-card fade-in">
-        <div class="feature-icon">&#128230;</div>
-        <h3>Fully Containerized</h3>
-        <p>7 Docker services orchestrated via Compose. One command to start: TimescaleDB, Airflow, Kafka, Zookeeper, producer, consumer.</p>
+        <h3>Macro Context</h3>
+        <p>Overlay stock performance against the Fed funds rate, CPI inflation, unemployment, and GDP from the Federal Reserve.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- DEMO -->
-<section class="section" id="demo">
+<!-- USE CASES -->
+<section class="section" id="use-cases">
   <div class="container">
-    <span class="section-label">// See It Running</span>
-    <h2 class="section-title">In Action</h2>
-    <p class="section-desc">7 Docker services, 23 Airflow DAGs, and real data flowing through the pipeline.</p>
+    <span class="section-label">// What You Can Do</span>
+    <h2 class="section-title">Use Cases</h2>
+    <p class="section-desc">Every question below can be answered with a single SQL query against the warehouse.</p>
 
     <div class="dashboard-grid" style="gap: var(--space-lg);">
 
       <div class="card fade-in">
         <div class="card-header">
-          <span class="card-title">Docker Services</span>
-          <span class="card-badge">7 running</span>
+          <span class="card-title">Performance Comparison</span>
         </div>
-        <div class="code-block" style="border: none; padding: var(--space-sm); background: transparent; font-size: 0.75rem;">
-          <code style="white-space: pre; line-height: 1.8;">
-<span class="cmd">$</span> docker compose ps
-<span style="color: var(--text-muted);">NAME                          STATUS    PORTS</span>
-<span style="color: var(--green);">airflow-scheduler</span>             Up 4h     8080/tcp
-<span style="color: var(--green);">airflow-webserver</span>             Up 4h     0.0.0.0:<span style="color:var(--cyan)">8081</span>→8080
-<span style="color: var(--green);">stock-data-platform-kafka</span>     Up 4h     0.0.0.0:<span style="color:var(--cyan)">9092</span>→9092
-<span style="color: var(--green);">kafka-consumer</span>                Up 4h
-<span style="color: var(--green);">kafka-producer</span>                Up 4h
-<span style="color: var(--green);">zookeeper</span>                     Up 4h     0.0.0.0:<span style="color:var(--cyan)">2181</span>→2181
-<span style="color: var(--green);">timescaledb</span>                   Up 4h     0.0.0.0:<span style="color:var(--cyan)">5432</span>→5432</code>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-md);">
+          Compare any two tickers over any time range. See daily close prices side by side, identify divergences, and spot trends.
+        </p>
+        <div class="code-block" style="border: none; padding: var(--space-sm); background: var(--bg-surface); font-size: 0.75rem;">
+          <code style="white-space: pre; line-height: 1.8; color: var(--text-secondary);">
+<span style="color:var(--amber)">"How has NVDA performed vs AAPL in 2026?"</span>
+
+<span style="color: var(--text-muted);">  ticker │     jan    │     feb    │     mar</span>
+<span style="color: var(--text-muted);">  ───────┼────────────┼────────────┼──────────</span>
+   <span style="color:var(--text-primary)">NVDA</span>   │ <span style="color:var(--green)">+8.2%</span>     │ <span style="color:var(--red)">-3.1%</span>     │ <span style="color:var(--green)">+5.7%</span>
+   <span style="color:var(--text-primary)">AAPL</span>   │ <span style="color:var(--green)">+2.1%</span>     │ <span style="color:var(--red)">-1.8%</span>     │ <span style="color:var(--green)">+0.9%</span></code>
         </div>
       </div>
 
       <div class="card fade-in">
         <div class="card-header">
-          <span class="card-title">Live Query Output</span>
-          <span class="card-badge">TimescaleDB</span>
+          <span class="card-title">Earnings Analysis</span>
         </div>
-        <div class="code-block" style="border: none; padding: var(--space-sm); background: transparent; font-size: 0.75rem;">
-          <code style="white-space: pre; line-height: 1.8;">
-<span class="cmd">$</span> psql <span class="flag">-c</span> <span style="color:var(--amber)">"SELECT ticker, date, close, volume
-   FROM fact_stock_price_daily
-   ORDER BY date DESC LIMIT 6;"</span>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-md);">
+          Instantly see which companies consistently beat analyst expectations &mdash; and which disappoint.
+        </p>
+        <div class="code-block" style="border: none; padding: var(--space-sm); background: var(--bg-surface); font-size: 0.75rem;">
+          <code style="white-space: pre; line-height: 1.8; color: var(--text-secondary);">
+<span style="color:var(--amber)">"Who beat earnings estimates the most?"</span>
 
-<span style="color: var(--text-muted);"> ticker │    date    │   close    │  volume</span>
-<span style="color: var(--text-muted);">────────┼────────────┼────────────┼──────────</span>
- <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-13 │ <span style="color:var(--green)">$250.12</span>   │ 36.9M
- <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-12 │ <span style="color:var(--green)">$255.76</span>   │ 40.8M
- <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-11 │ <span style="color:var(--green)">$260.81</span>   │ 26.2M
- <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-10 │ <span style="color:var(--green)">$260.83</span>   │ 30.6M
- <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-09 │ <span style="color:var(--green)">$259.88</span>   │ 38.2M
- <span style="color:var(--text-primary)">AAPL</span>   │ 2026-03-06 │ <span style="color:var(--green)">$257.46</span>   │ 41.1M</code>
+<span style="color: var(--text-muted);">  ticker │ avg surprise │ beat rate</span>
+<span style="color: var(--text-muted);">  ───────┼──────────────┼──────────</span>
+   <span style="color:var(--text-primary)">NFLX</span>   │ <span style="color:var(--green)">+12.4%</span>       │ <span style="color:var(--green)">100%</span>
+   <span style="color:var(--text-primary)">AAPL</span>   │ <span style="color:var(--green)">+4.8%</span>        │ <span style="color:var(--green)">100%</span>
+   <span style="color:var(--text-primary)">MSFT</span>   │ <span style="color:var(--green)">+3.2%</span>        │ <span style="color:var(--green)">100%</span></code>
         </div>
       </div>
 
-      <div class="card card-full fade-in">
+      <div class="card fade-in">
         <div class="card-header">
-          <span class="card-title">Data Pipeline Summary</span>
-          <span class="card-badge">All Sources</span>
+          <span class="card-title">Macro Correlation</span>
         </div>
-        <div class="code-block" style="border: none; padding: var(--space-sm); background: transparent; font-size: 0.75rem;">
-          <code style="white-space: pre; line-height: 1.8;">
-<span class="cmd">$</span> psql <span class="flag">-c</span> <span style="color:var(--amber)">"SELECT table_name, row_count FROM (
-   SELECT 'fact_stock_price_daily' as table_name, COUNT(*) as row_count FROM fact_stock_price_daily
-   UNION ALL SELECT 'fact_company_fundamentals', COUNT(*) FROM fact_company_fundamentals
-   UNION ALL SELECT 'fact_earnings', COUNT(*) FROM fact_earnings
-   UNION ALL SELECT 'fact_sec_financials', COUNT(*) FROM fact_sec_financials
-   UNION ALL SELECT 'fact_macro_data', COUNT(*) FROM fact_macro_data
-   ) t ORDER BY table_name;"</span>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-md);">
+          Join stock prices with Federal Reserve data. See how rate changes impact different sectors.
+        </p>
+        <div class="code-block" style="border: none; padding: var(--space-sm); background: var(--bg-surface); font-size: 0.75rem;">
+          <code style="white-space: pre; line-height: 1.8; color: var(--text-secondary);">
+<span style="color:var(--amber)">"Tech stocks vs. Fed rate since 2023"</span>
 
-<span style="color: var(--text-muted);">         table_name          │ row_count</span>
-<span style="color: var(--text-muted);">─────────────────────────────┼───────────</span>
- <span style="color:var(--text-primary)">fact_company_fundamentals</span>   │ <span style="color:var(--green)">       10</span>    <span style="color:var(--text-muted)">← yfinance .info</span>
- <span style="color:var(--text-primary)">fact_earnings</span>               │ <span style="color:var(--green)">      240</span>    <span style="color:var(--text-muted)">← yfinance earnings</span>
- <span style="color:var(--text-primary)">fact_macro_data</span>             │ <span style="color:var(--green)">    3,068</span>    <span style="color:var(--text-muted)">← FRED API</span>
- <span style="color:var(--text-primary)">fact_sec_financials</span>         │ <span style="color:var(--green)">    5,444</span>    <span style="color:var(--text-muted)">← SEC EDGAR</span>
- <span style="color:var(--text-primary)">fact_stock_price_daily</span>      │ <span style="color:var(--green)">    6,281</span>    <span style="color:var(--text-muted)">← yfinance OHLCV</span></code>
+<span style="color: var(--text-muted);">  quarter │ fed_rate │ tech_avg_return</span>
+<span style="color: var(--text-muted);">  ────────┼──────────┼────────────────</span>
+   <span style="color:var(--text-primary)">2025-Q4</span> │ <span style="color:var(--cyan)">3.64%</span>    │ <span style="color:var(--green)">+6.8%</span>
+   <span style="color:var(--text-primary)">2025-Q3</span> │ <span style="color:var(--cyan)">4.25%</span>    │ <span style="color:var(--green)">+3.2%</span>
+   <span style="color:var(--text-primary)">2025-Q2</span> │ <span style="color:var(--cyan)">4.50%</span>    │ <span style="color:var(--red)">-1.4%</span></code>
+        </div>
+      </div>
+
+      <div class="card fade-in">
+        <div class="card-header">
+          <span class="card-title">Financial Health</span>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--space-md);">
+          Pull revenue, net income, and total assets straight from SEC filings. Compare across companies and quarters.
+        </p>
+        <div class="code-block" style="border: none; padding: var(--space-sm); background: var(--bg-surface); font-size: 0.75rem;">
+          <code style="white-space: pre; line-height: 1.8; color: var(--text-secondary);">
+<span style="color:var(--amber)">"AAPL revenue trend (10-K filings)"</span>
+
+<span style="color: var(--text-muted);">  fiscal_year │ revenue      │ net_income</span>
+<span style="color: var(--text-muted);">  ────────────┼──────────────┼───────────</span>
+   <span style="color:var(--text-primary)">FY 2025</span>    │ <span style="color:var(--green)">$416.2B</span>     │ <span style="color:var(--green)">$112.0B</span>
+   <span style="color:var(--text-primary)">FY 2024</span>    │ <span style="color:var(--green)">$391.0B</span>     │ <span style="color:var(--green)">$93.7B</span>
+   <span style="color:var(--text-primary)">FY 2023</span>    │ <span style="color:var(--green)">$383.3B</span>     │ <span style="color:var(--green)">$97.0B</span></code>
         </div>
       </div>
 
     </div>
 
     <div style="text-align: center; margin-top: var(--space-xl);">
-      <a href="dashboard.html" class="btn btn-primary">View Live Dashboard &rarr;</a>
+      <a href="dashboard.html" class="btn btn-primary">Explore the Dashboard &rarr;</a>
     </div>
   </div>
 </section>
 
-<!-- ARCHITECTURE -->
+<!-- ARCHITECTURE (simplified) -->
 <section class="section" id="architecture">
   <div class="container">
-    <span class="section-label">// System Design</span>
+    <span class="section-label">// Under the Hood</span>
     <h2 class="section-title">Architecture</h2>
-    <p class="section-desc">Real-time streaming and batch ETL converge into a single time-series warehouse.</p>
+    <p class="section-desc">Real-time streaming and scheduled batch ETL converge into a single time-series warehouse.</p>
 
     <div class="diagram-frame fade-in">
       <img src="img/architecture.svg" alt="Architecture Diagram" loading="lazy">
     </div>
 
-    <div style="margin-top: var(--space-2xl);">
-      <span class="section-label" style="margin-bottom: var(--space-md); display: block;">// Data Flow</span>
-      <div class="diagram-frame fade-in">
-        <img src="img/data-flow.svg" alt="Data Flow Diagram" loading="lazy">
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- DATA MODEL -->
-<section class="section" id="schema">
-  <div class="container">
-    <span class="section-label">// Data Model</span>
-    <h2 class="section-title">Star Schema</h2>
-    <p class="section-desc">9 tables across 4 data sources — designed for analytical queries on time-series financial data.</p>
-
-    <div class="fade-in" style="border: 1px solid var(--border); overflow-x: auto;">
-      <table class="schema-table">
-        <thead>
-          <tr><th>Table</th><th>Type</th><th>Description</th><th>Source</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="table-name">dim_company</td><td><span class="type-dim">DIM</span></td><td>Ticker, name, sector, industry, exchange (SCD Type 2)</td><td>yfinance</td></tr>
-          <tr><td class="table-name">dim_date</td><td><span class="type-dim">DIM</span></td><td>Calendar dimension: year, quarter, month, day, weekend flag</td><td>Generated</td></tr>
-          <tr><td class="table-name">dim_macro_indicator</td><td><span class="type-dim">DIM</span></td><td>FRED series metadata (rates, CPI, GDP, unemployment)</td><td>FRED</td></tr>
-          <tr><td class="table-name">fact_stock_price_daily</td><td><span class="type-fact">FACT</span></td><td>OHLCV data per ticker per day</td><td>yfinance</td></tr>
-          <tr><td class="table-name">fact_stock_price_monthly</td><td><span class="type-fact">FACT</span></td><td>Aggregated monthly averages and total volume</td><td>Computed</td></tr>
-          <tr><td class="table-name">fact_company_fundamentals</td><td><span class="type-fact">FACT</span></td><td>Market cap, PE ratios, dividends, beta (daily snapshot)</td><td>yfinance</td></tr>
-          <tr><td class="table-name">fact_earnings</td><td><span class="type-fact">FACT</span></td><td>Quarterly EPS: estimate vs actual, surprise %</td><td>yfinance</td></tr>
-          <tr><td class="table-name">fact_sec_financials</td><td><span class="type-fact">FACT</span></td><td>SEC 10-K/10-Q line items: income, balance sheet, cash flow</td><td>SEC EDGAR</td></tr>
-          <tr><td class="table-name">fact_macro_data</td><td><span class="type-fact">FACT</span></td><td>FRED time series (fed funds rate, CPI, unemployment, GDP)</td><td>FRED</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<!-- TECH STACK -->
-<section class="section" id="tech">
-  <div class="container">
-    <span class="section-label">// Stack</span>
-    <h2 class="section-title">Built With</h2>
-    <div class="tech-grid fade-in">
+    <!-- Tech stack inline -->
+    <div class="tech-grid fade-in" style="margin-top: var(--space-2xl);">
       <div class="tech-item">
         <img src="https://cdn.simpleicons.org/apachekafka/white" alt="Kafka">
-        <div><div class="tech-name">Apache Kafka</div><div class="tech-role">Streaming</div></div>
+        <div><div class="tech-name">Kafka</div><div class="tech-role">Streaming</div></div>
       </div>
       <div class="tech-item">
         <img src="https://cdn.simpleicons.org/apacheairflow/white" alt="Airflow">
-        <div><div class="tech-name">Apache Airflow</div><div class="tech-role">Orchestration</div></div>
+        <div><div class="tech-name">Airflow</div><div class="tech-role">Orchestration</div></div>
       </div>
       <div class="tech-item">
         <img src="https://cdn.simpleicons.org/timescale/FDB515" alt="TimescaleDB">
@@ -300,46 +265,30 @@
       </div>
       <div class="tech-item">
         <img src="https://cdn.simpleicons.org/docker/2496ED" alt="Docker">
-        <div><div class="tech-name">Docker Compose</div><div class="tech-role">Containers</div></div>
+        <div><div class="tech-name">Docker</div><div class="tech-role">Containers</div></div>
       </div>
       <div class="tech-item">
         <img src="https://cdn.simpleicons.org/python/3776AB" alt="Python">
-        <div><div class="tech-name">Python</div><div class="tech-role">ETL &amp; Scripts</div></div>
+        <div><div class="tech-name">Python</div><div class="tech-role">ETL</div></div>
       </div>
       <div class="tech-item">
         <img src="https://cdn.simpleicons.org/postgresql/white" alt="PostgreSQL">
-        <div><div class="tech-name">PostgreSQL 14</div><div class="tech-role">Database</div></div>
+        <div><div class="tech-name">PostgreSQL</div><div class="tech-role">Database</div></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- QUICKSTART -->
+<!-- GET STARTED (minimal) -->
 <section class="section" id="quickstart">
-  <div class="container">
-    <span class="section-label">// Get Started</span>
-    <h2 class="section-title">Quickstart</h2>
-    <p class="section-desc">Up and running in under a minute. Requires Docker and Docker Compose.</p>
-
-    <div class="code-block fade-in" data-lang="bash">
+  <div class="container" style="text-align: center; max-width: 600px;">
+    <span class="section-label">// Try It</span>
+    <h2 class="section-title">3 Commands to Launch</h2>
+    <div class="code-block fade-in" data-lang="bash" style="text-align: left;">
       <code>
-<span class="comment"># Clone and start</span>
 <span class="cmd">git clone</span> https://github.com/jayhemnani9910/stock-data-platform.git
-<span class="cmd">cd</span> stock-data-platform
-<span class="cmd">cp</span> .env.example .env    <span class="comment"># edit with your FRED API key</span>
-<span class="cmd">docker compose up</span> <span class="flag">-d</span>
-
-<span class="comment"># Access Airflow UI</span>
-<span class="cmd">open</span> http://localhost:8081  <span class="comment"># admin / admin</span>
-
-<span class="comment"># Schema auto-creates. Trigger DAGs in order:</span>
-<span class="comment">#   1. populate_dim_company</span>
-<span class="comment">#   2. populate_dim_date</span>
-<span class="comment">#   3. etl_stock_data_aapl (or any ticker)</span>
-
-<span class="comment"># Query the warehouse</span>
-<span class="cmd">docker exec</span> <span class="flag">-it</span> timescaledb psql <span class="flag">-U</span> data226 <span class="flag">-d</span> stockdw \
-  <span class="flag">-c</span> <span style="color: var(--amber)">"SELECT * FROM fact_stock_price_daily ORDER BY date DESC LIMIT 10;"</span>
+<span class="cmd">cp</span> .env.example .env
+<span class="cmd">docker compose up</span> <span class="flag">-d</span>   <span class="comment"># That's it. 7 services, ready to query.</span>
       </code>
     </div>
   </div>
@@ -354,13 +303,11 @@
 </footer>
 
 <script>
-// Scroll-triggered fade-in
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }});
 }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
-// Active nav link
 const sections = document.querySelectorAll('.section[id]');
 window.addEventListener('scroll', () => {
   const scrollY = window.scrollY + 100;

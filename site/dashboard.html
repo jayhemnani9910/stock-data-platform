@@ -31,29 +31,26 @@
 
 <main style="padding-top: calc(var(--nav-height) + var(--space-xl));">
   <div class="container">
-    <span class="section-label">// Live Data Snapshot</span>
-    <h1 class="section-title" style="margin-bottom: var(--space-xs);">Dashboard</h1>
-    <p class="text-secondary" style="margin-bottom: var(--space-2xl); font-size: 0.9rem;">
-      Static snapshot from TimescaleDB &mdash; updated on each deployment.
-    </p>
+    <h1 class="section-title" style="margin-bottom: var(--space-xs);">Market Intelligence</h1>
+    <p class="text-muted mono" style="margin-bottom: var(--space-2xl); font-size: 0.8rem;" id="lastUpdated"></p>
 
     <!-- METRIC CARDS -->
     <div class="stats-row" style="margin-bottom: var(--space-xl);">
       <div class="stat-card">
-        <div class="stat-value" id="tickerCount">—</div>
-        <div class="stat-label">Tickers</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="totalMarketCap">—</div>
+        <div class="stat-value" id="totalMarketCap">&mdash;</div>
         <div class="stat-label">Combined Market Cap</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">9</div>
-        <div class="stat-label">Tables</div>
+        <div class="stat-value" id="avgPE">&mdash;</div>
+        <div class="stat-label">Avg Trailing PE</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">4</div>
-        <div class="stat-label">Data Sources</div>
+        <div class="stat-value" id="avgSurprise">&mdash;</div>
+        <div class="stat-label">Avg EPS Surprise</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="fedRate">&mdash;</div>
+        <div class="stat-label">Fed Funds Rate</div>
       </div>
     </div>
 
@@ -63,8 +60,8 @@
       <!-- PRICE CHART -->
       <div class="card card-full fade-in">
         <div class="card-header">
-          <span class="card-title">Stock Prices (Last 90 Days)</span>
-          <span class="card-badge">OHLCV</span>
+          <span class="card-title">Price Performance</span>
+          <span class="card-badge">Last 90 Days</span>
         </div>
         <div class="chart-container" style="height: 340px;">
           <canvas id="priceChart"></canvas>
@@ -74,8 +71,8 @@
       <!-- FUNDAMENTALS TABLE -->
       <div class="card card-full fade-in">
         <div class="card-header">
-          <span class="card-title">Company Fundamentals</span>
-          <span class="card-badge">yfinance</span>
+          <span class="card-title">Valuation Snapshot</span>
+          <span class="card-badge">10 Tickers</span>
         </div>
         <div style="overflow-x: auto;">
           <table class="data-table">
@@ -94,10 +91,32 @@
         </div>
       </div>
 
+      <!-- EARNINGS TABLE -->
+      <div class="card card-full fade-in">
+        <div class="card-header">
+          <span class="card-title">Earnings Track Record</span>
+          <span class="card-badge">Latest Quarter</span>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Report Date</th>
+                <th>EPS Estimate</th>
+                <th>EPS Actual</th>
+                <th>Surprise</th>
+              </tr>
+            </thead>
+            <tbody id="earningsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- EARNINGS CHART -->
       <div class="card fade-in">
         <div class="card-header">
-          <span class="card-title">AAPL Earnings (EPS)</span>
+          <span class="card-title">AAPL Earnings History</span>
           <span class="card-badge">Quarterly</span>
         </div>
         <div class="chart-container">
@@ -108,8 +127,8 @@
       <!-- MACRO CHART -->
       <div class="card fade-in">
         <div class="card-header">
-          <span class="card-title">Macro Indicators</span>
-          <span class="card-badge">FRED</span>
+          <span class="card-title">Economic Backdrop</span>
+          <span class="card-badge">Federal Reserve</span>
         </div>
         <div class="chart-container">
           <canvas id="macroChart"></canvas>
