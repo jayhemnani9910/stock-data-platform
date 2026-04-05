@@ -11,10 +11,6 @@
 **End-to-end data engineering pipeline that ingests, transforms, and warehouses real-time stock market data — built to demonstrate production-grade streaming, orchestration, and dimensional modeling.**
 
 <p align="center">
-  <a href="https://jayhemnani9910.github.io/stock-data-platform/">
-    <img src="architecture.png" alt="Stock Data Platform" width="800"/>
-  </a>
-  <br>
   <a href="https://jayhemnani9910.github.io/stock-data-platform/"><strong>View Live Site</strong></a> · <a href="https://jayhemnani9910.github.io/stock-data-platform/dashboard.html"><strong>Interactive Dashboard</strong></a>
 </p>
 
