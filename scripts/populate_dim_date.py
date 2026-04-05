@@ -1,5 +1,6 @@
 from datetime import date, timedelta
-from db_utils import get_db_connection, batch_insert
+
+from db_utils import batch_insert, get_db_connection
 
 START_DATE = date(1990, 1, 1)
 END_DATE = date(2035, 12, 31)

@@ -1,8 +1,9 @@
-from kafka import KafkaConsumer
 import json
-import time
 import os
 import sys
+import time
+
+from kafka import KafkaConsumer
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scripts"))
 from db_utils import connect_db, upsert_stock_prices
@@ -21,9 +22,7 @@ def _connect_kafka():
         try:
             consumer = KafkaConsumer(
                 KAFKA_TOPIC,
-                bootstrap_servers=[
-                    os.environ.get("KAFKA_BOOTSTRAP", "stock-data-platform-kafka:9092")
-                ],
+                bootstrap_servers=[os.environ.get("KAFKA_BOOTSTRAP", "stock-data-platform-kafka:9092")],
                 auto_offset_reset="earliest",
                 group_id="stock-data-consumer",
                 value_deserializer=lambda m: json.loads(m.decode("utf-8")),
@@ -32,9 +31,7 @@ def _connect_kafka():
             return consumer
         except Exception as e:
             delay = min(BACKOFF_BASE * (2 ** (attempt - 1)), BACKOFF_CAP)
-            print(
-                f"Kafka connection attempt {attempt}/{MAX_RETRIES} failed: {e}. Retrying in {delay}s..."
-            )
+            print(f"Kafka connection attempt {attempt}/{MAX_RETRIES} failed: {e}. Retrying in {delay}s...")
             time.sleep(delay)
     raise ConnectionError(f"Failed to connect to Kafka after {MAX_RETRIES} attempts")
 
@@ -56,9 +53,7 @@ def _flush_batch(conn, batch):
             print(f"Committed batch of {len(batch)} messages after reconnect")
         except Exception as e2:
             conn.rollback()
-            print(
-                f"Batch insert failed after reconnect: {e2}. Discarding {len(batch)} messages."
-            )
+            print(f"Batch insert failed after reconnect: {e2}. Discarding {len(batch)} messages.")
         return conn
 
 
@@ -90,9 +85,7 @@ def main():
                         print(f"Malformed message, skipping: {e} {data}")
 
             now = time.time()
-            if batch and (
-                len(batch) >= BATCH_SIZE or now - last_flush >= FLUSH_INTERVAL
-            ):
+            if batch and (len(batch) >= BATCH_SIZE or now - last_flush >= FLUSH_INTERVAL):
                 conn = _flush_batch(conn, batch)
                 batch = []
                 last_flush = now

@@ -1,18 +1,19 @@
 import os
+
 import pandas as pd
 import yfinance as yf
 from db_utils import (
-    get_db_connection,
-    get_company_key,
-    batch_insert,
     UPSERT_EARNINGS_SQL,
+    batch_insert,
+    get_company_key,
+    get_db_connection,
 )
 
 TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
 
 
 def populate_earnings():
-    with open(TICKERS_FILE, "r") as f:
+    with open(TICKERS_FILE) as f:
         tickers = [line.strip() for line in f if line.strip()]
 
     rows = []
@@ -35,13 +36,9 @@ def populate_earnings():
                         (
                             report_date.date(),
                             company_key,
-                            row.get("EPS Estimate")
-                            if not pd.isna(row.get("EPS Estimate"))
-                            else None,
+                            row.get("EPS Estimate") if not pd.isna(row.get("EPS Estimate")) else None,
                             float(eps_actual),
-                            row.get("Surprise(%)")
-                            if not pd.isna(row.get("Surprise(%)"))
-                            else None,
+                            row.get("Surprise(%)") if not pd.isna(row.get("Surprise(%)")) else None,
                         )
                     )
             except Exception as e:

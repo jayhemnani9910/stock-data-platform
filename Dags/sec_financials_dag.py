@@ -1,6 +1,5 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-
 from dag_config import ETL_DEFAULT_ARGS  # noqa: F401 — side-effect: adds scripts/ to sys.path
 from populate_sec_financials import populate_sec_financials  # noqa: E402
 
@@ -11,6 +10,4 @@ with DAG(
     catchup=False,
     tags=["sec", "quarterly"],
 ) as dag:
-    PythonOperator(
-        task_id="populate_sec_financials", python_callable=populate_sec_financials
-    )
+    PythonOperator(task_id="populate_sec_financials", python_callable=populate_sec_financials)

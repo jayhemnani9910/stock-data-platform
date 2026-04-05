@@ -1,9 +1,10 @@
 """Export data from TimescaleDB to static JSON files for the GitHub Pages dashboard."""
 
-import os
 import json
 import math
+import os
 from datetime import date, timedelta
+
 from db_utils import get_db_connection
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "site", "data")
@@ -36,9 +37,7 @@ def export_price_summary(conn):
             (start,),
         )
         rows = cur.fetchall()
-    data = _serialize(
-        rows, ["ticker", "date", "open", "high", "low", "close", "volume"]
-    )
+    data = _serialize(rows, ["ticker", "date", "open", "high", "low", "close", "volume"])
     for r in data:
         r["date"] = str(r["date"])
     return data
@@ -81,9 +80,7 @@ def export_earnings(conn):
             ORDER BY d.ticker, f.report_date DESC
         """)
         rows = cur.fetchall()
-    data = _serialize(
-        rows, ["ticker", "report_date", "eps_estimate", "eps_actual", "surprise_pct"]
-    )
+    data = _serialize(rows, ["ticker", "report_date", "eps_estimate", "eps_actual", "surprise_pct"])
     for r in data:
         r["report_date"] = str(r["report_date"])
     return data

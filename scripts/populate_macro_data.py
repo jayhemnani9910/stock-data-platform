@@ -1,11 +1,12 @@
 import os
-from fredapi import Fred
+
 from db_utils import (
+    UPSERT_MACRO_DATA_SQL,
+    batch_insert,
     get_db_connection,
     get_indicator_key,
-    batch_insert,
-    UPSERT_MACRO_DATA_SQL,
 )
+from fredapi import Fred
 
 MACRO_SERIES = {
     "FEDFUNDS": ("Federal Funds Effective Rate", "monthly", "Percent"),
@@ -33,9 +34,7 @@ def _seed_indicators(conn):
 def populate_macro_data():
     api_key = os.environ.get("FRED_API_KEY", "")
     if not api_key or api_key == "your_fred_api_key_here":
-        print(
-            "FRED_API_KEY not set. Register free at https://fred.stlouisfed.org/docs/api/api_key.html"
-        )
+        print("FRED_API_KEY not set. Register free at https://fred.stlouisfed.org/docs/api/api_key.html")
         return
 
     fred = Fred(api_key=api_key)
@@ -61,6 +60,4 @@ def populate_macro_data():
         if all_rows:
             batch_insert(conn, UPSERT_MACRO_DATA_SQL, all_rows)
 
-    print(
-        f"Macro data updated: {len(all_rows)} data points across {len(MACRO_SERIES)} series"
-    )
+    print(f"Macro data updated: {len(all_rows)} data points across {len(MACRO_SERIES)} series")

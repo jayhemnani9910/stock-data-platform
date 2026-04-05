@@ -1,6 +1,5 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-
 from dag_config import ETL_DEFAULT_ARGS  # noqa: F401 — side-effect: adds scripts/ to sys.path
 from populate_earnings import populate_earnings  # noqa: E402
 

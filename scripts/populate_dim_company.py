@@ -1,5 +1,6 @@
 import os
-from db_utils import get_db_connection, batch_insert
+
+from db_utils import batch_insert, get_db_connection
 
 TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
 
@@ -23,7 +24,7 @@ COMPANY_METADATA = {
 
 
 def populate_dim_company():
-    with open(TICKERS_FILE, "r") as f:
+    with open(TICKERS_FILE) as f:
         tickers = [line.strip() for line in f if line.strip()]
 
     companies = []

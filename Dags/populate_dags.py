@@ -1,14 +1,13 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-
 from dag_config import DEFAULT_ARGS  # noqa: F401 — side-effect: adds scripts/ to sys.path
+from populate_company_fundamentals import populate_company_fundamentals  # noqa: E402
 from populate_dim_company import populate_dim_company  # noqa: E402
 from populate_dim_date import generate_dates  # noqa: E402
-from populate_fact_stock_price import populate_fact_stock_price  # noqa: E402
-from populate_company_fundamentals import populate_company_fundamentals  # noqa: E402
 from populate_earnings import populate_earnings  # noqa: E402
-from populate_sec_financials import populate_sec_financials  # noqa: E402
+from populate_fact_stock_price import populate_fact_stock_price  # noqa: E402
 from populate_macro_data import populate_macro_data  # noqa: E402
+from populate_sec_financials import populate_sec_financials  # noqa: E402
 
 _POPULATE_DAGS = [
     (

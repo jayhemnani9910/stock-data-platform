@@ -1,15 +1,15 @@
+import gzip
+import os
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import pandas as pd
+import yfinance as yf
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from datetime import datetime, timedelta
-import yfinance as yf
-import pandas as pd
-import os
-import gzip
-from pathlib import Path
-
 from dag_config import ETL_DEFAULT_ARGS, load_tickers
-from db_utils import get_db_connection, get_company_key, upsert_stock_prices
+from db_utils import get_company_key, get_db_connection, upsert_stock_prices
 
 TICKERS = load_tickers()
 STANDARD_COLS = ["open", "high", "low", "close", "volume"]
@@ -123,9 +123,7 @@ def load_data(ticker, ti):
         with get_db_connection() as conn:
             company_key = get_company_key(conn, ticker)
             if not company_key:
-                raise ValueError(
-                    f"Ticker {ticker} not found in dim_company. Run populate_dim_company first."
-                )
+                raise ValueError(f"Ticker {ticker} not found in dim_company. Run populate_dim_company first.")
 
             rows = [
                 (
@@ -218,8 +216,6 @@ with DAG(
     catchup=False,
     tags=["stock", "CSV"],
 ) as export_dag:
-    export_csvs = PythonOperator(
-        task_id="export_30_day_csvs", python_callable=export_30_day_csvs
-    )
+    export_csvs = PythonOperator(task_id="export_30_day_csvs", python_callable=export_30_day_csvs)
 
 globals()["csv_export_dag"] = export_dag

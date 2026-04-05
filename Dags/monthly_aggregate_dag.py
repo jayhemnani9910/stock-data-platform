@@ -1,6 +1,5 @@
 from airflow import DAG
 from airflow.providers.postgres.operators.postgres import PostgresOperator
-
 from dag_config import DEFAULT_ARGS
 
 with DAG(

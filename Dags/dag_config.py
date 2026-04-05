@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 from datetime import datetime, timedelta
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scripts"))
@@ -19,5 +19,5 @@ TICKERS_FILE = "/opt/airflow/dags/tickers.txt"
 
 
 def load_tickers():
-    with open(TICKERS_FILE, "r") as f:
+    with open(TICKERS_FILE) as f:
         return [line.strip() for line in f if line.strip()]

@@ -1,12 +1,13 @@
 import os
 import re
-from edgar import set_identity, Company
+
 from db_utils import (
-    get_db_connection,
-    get_company_key,
-    batch_insert,
     UPSERT_SEC_FINANCIALS_SQL,
+    batch_insert,
+    get_company_key,
+    get_db_connection,
 )
+from edgar import Company, set_identity
 
 TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
 
@@ -23,9 +24,7 @@ def _parse_period_end(period_key):
     return match.group(1) if match else None
 
 
-def _extract_statement(
-    xbrl, stmt_type_key, stmt_label, company_key, filing_date, filing_type
-):
+def _extract_statement(xbrl, stmt_type_key, stmt_label, company_key, filing_date, filing_type):
     rows = []
     try:
         s_info = xbrl.get_statement_by_type(stmt_type_key)
@@ -35,12 +34,7 @@ def _extract_statement(
         for item in stmt_list:
             label = item.get("label", "")
             values = item.get("values", {})
-            if (
-                not values
-                or label.endswith("[Abstract]")
-                or label.endswith("[Table]")
-                or label.endswith("[Axis]")
-            ):
+            if not values or label.endswith("[Abstract]") or label.endswith("[Table]") or label.endswith("[Axis]"):
                 continue
             for period_key, value in values.items():
                 period_end = _parse_period_end(period_key)
@@ -69,7 +63,7 @@ def populate_sec_financials():
     identity = os.environ.get("EDGAR_IDENTITY", "StockDataPlatform user@example.com")
     set_identity(identity)
 
-    with open(TICKERS_FILE, "r") as f:
+    with open(TICKERS_FILE) as f:
         tickers = [line.strip() for line in f if line.strip()]
 
     all_rows = []
@@ -83,9 +77,7 @@ def populate_sec_financials():
             try:
                 company = Company(ticker)
                 for filing_type in ["10-K", "10-Q"]:
-                    filing = company.get_filings(
-                        form=filing_type, amendments=False
-                    ).latest(1)
+                    filing = company.get_filings(form=filing_type, amendments=False).latest(1)
                     if filing is None:
                         continue
                     filing_date = str(filing.filing_date)
@@ -116,6 +108,4 @@ def populate_sec_financials():
             all_rows = list(seen.values())
             batch_insert(conn, UPSERT_SEC_FINANCIALS_SQL, all_rows)
 
-    print(
-        f"SEC financials updated: {len(all_rows)} line items across {len(tickers)} tickers"
-    )
+    print(f"SEC financials updated: {len(all_rows)} line items across {len(tickers)} tickers")
