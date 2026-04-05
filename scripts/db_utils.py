@@ -27,9 +27,13 @@ def connect_db(retries=True, max_retries=MAX_RETRIES):
             return conn
         except Exception as e:
             delay = min(BACKOFF_BASE * (2 ** (attempt - 1)), BACKOFF_CAP)
-            print(f"DB connection attempt {attempt}/{max_retries} failed: {e}. Retrying in {delay}s...")
+            print(
+                f"DB connection attempt {attempt}/{max_retries} failed: {e}. Retrying in {delay}s..."
+            )
             time.sleep(delay)
-    raise ConnectionError(f"Failed to connect to TimescaleDB after {max_retries} attempts")
+    raise ConnectionError(
+        f"Failed to connect to TimescaleDB after {max_retries} attempts"
+    )
 
 
 @contextmanager

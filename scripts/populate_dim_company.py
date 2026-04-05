@@ -6,7 +6,12 @@ TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
 COMPANY_METADATA = {
     "AAPL": ("Apple Inc.", "Technology", "Consumer Electronics", "NASDAQ"),
     "AMZN": ("Amazon.com Inc.", "Consumer Cyclical", "Internet Retail", "NASDAQ"),
-    "DIS": ("The Walt Disney Company", "Communication Services", "Entertainment", "NYSE"),
+    "DIS": (
+        "The Walt Disney Company",
+        "Communication Services",
+        "Entertainment",
+        "NYSE",
+    ),
     "GOOG": ("Alphabet Inc.", "Technology", "Internet Content", "NASDAQ"),
     "JPM": ("JPMorgan Chase & Co.", "Finance", "Banking", "NYSE"),
     "META": ("Meta Platforms", "Technology", "Social Media", "NASDAQ"),
@@ -18,7 +23,7 @@ COMPANY_METADATA = {
 
 
 def populate_dim_company():
-    with open(TICKERS_FILE, 'r') as f:
+    with open(TICKERS_FILE, "r") as f:
         tickers = [line.strip() for line in f if line.strip()]
 
     companies = []

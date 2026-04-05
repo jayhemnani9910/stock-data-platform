@@ -5,13 +5,13 @@ from dag_config import ETL_DEFAULT_ARGS  # noqa: F401 — side-effect: adds scri
 from populate_company_fundamentals import populate_company_fundamentals  # noqa: E402
 
 with DAG(
-    dag_id='fundamentals_daily',
+    dag_id="fundamentals_daily",
     default_args=ETL_DEFAULT_ARGS,
-    schedule_interval='@daily',
+    schedule_interval="@daily",
     catchup=False,
-    tags=['fundamentals', 'daily']
+    tags=["fundamentals", "daily"],
 ) as dag:
     PythonOperator(
-        task_id='populate_company_fundamentals',
-        python_callable=populate_company_fundamentals
+        task_id="populate_company_fundamentals",
+        python_callable=populate_company_fundamentals,
     )

@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from yfinance import Ticker
 from yfinance.exceptions import YFRateLimitError
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scripts"))
 from db_utils import connect_db
 
 ET = ZoneInfo("America/New_York")
@@ -49,7 +49,9 @@ def _resolve_company_keys(tickers):
             missing = [t for t in tickers if t not in company_keys]
             if not missing:
                 return company_keys
-            print(f"{', '.join(missing)} not found in dim_company yet. Retrying in 10 seconds...")
+            print(
+                f"{', '.join(missing)} not found in dim_company yet. Retrying in 10 seconds..."
+            )
             time.sleep(10)
     finally:
         conn.close()
@@ -67,7 +69,7 @@ def _fetch_ticker_data(ticker_obj, ticker):
         "high": float(data["High"].iloc[-1]),
         "low": float(data["Low"].iloc[-1]),
         "close": float(data["Close"].iloc[-1]),
-        "volume": int(data["Volume"].iloc[-1])
+        "volume": int(data["Volume"].iloc[-1]),
     }
 
 
@@ -78,17 +80,23 @@ def main():
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             producer = KafkaProducer(
-                bootstrap_servers=[os.environ.get('KAFKA_BOOTSTRAP', 'stock-data-platform-kafka:9092')],
-                value_serializer=lambda v: json.dumps(v).encode('utf-8')
+                bootstrap_servers=[
+                    os.environ.get("KAFKA_BOOTSTRAP", "stock-data-platform-kafka:9092")
+                ],
+                value_serializer=lambda v: json.dumps(v).encode("utf-8"),
             )
             print("Connected to Kafka broker.")
             break
         except Exception as e:
             delay = min(BACKOFF_BASE * (2 ** (attempt - 1)), BACKOFF_CAP)
-            print(f"Kafka connection attempt {attempt}/{MAX_RETRIES} failed: {e}. Retrying in {delay}s...")
+            print(
+                f"Kafka connection attempt {attempt}/{MAX_RETRIES} failed: {e}. Retrying in {delay}s..."
+            )
             time.sleep(delay)
     else:
-        raise ConnectionError(f"Failed to connect to Kafka after {MAX_RETRIES} attempts")
+        raise ConnectionError(
+            f"Failed to connect to Kafka after {MAX_RETRIES} attempts"
+        )
 
     company_keys = _resolve_company_keys(tickers)
     ticker_objs = {t: Ticker(t) for t in tickers}
@@ -118,7 +126,9 @@ def main():
                             producer.send(KAFKA_TOPIC, value=payload)
                             print(f"Sent [{ticker}]:", payload)
                     except YFRateLimitError:
-                        print("Rate limited by Yahoo Finance. Backing off for 60 seconds...")
+                        print(
+                            "Rate limited by Yahoo Finance. Backing off for 60 seconds..."
+                        )
                         time.sleep(60)
                     except Exception as e:
                         print(f"Error fetching {ticker}: {e}")

@@ -19,7 +19,9 @@ def populate_fact_stock_price():
     rows = []
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT ticker, company_key FROM dim_company WHERE is_current=TRUE")
+            cur.execute(
+                "SELECT ticker, company_key FROM dim_company WHERE is_current=TRUE"
+            )
             company_map = {ticker: key for ticker, key in cur.fetchall()}
         for ticker, date, open_, high, low, close, volume in sample_data:
             company_key = company_map.get(ticker)

@@ -1,44 +1,63 @@
 import os
 import re
 from edgar import set_identity, Company
-from db_utils import get_db_connection, get_company_key, batch_insert, UPSERT_SEC_FINANCIALS_SQL
+from db_utils import (
+    get_db_connection,
+    get_company_key,
+    batch_insert,
+    UPSERT_SEC_FINANCIALS_SQL,
+)
 
 TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
 
 STATEMENT_TYPES = {
-    'IncomeStatement': 'income',
-    'BalanceSheet': 'balance_sheet',
-    'CashFlowStatement': 'cash_flow',
+    "IncomeStatement": "income",
+    "BalanceSheet": "balance_sheet",
+    "CashFlowStatement": "cash_flow",
 }
 
 
 def _parse_period_end(period_key):
     """Extract end date from period key like 'duration_2024-09-29_2025-09-27' or 'instant_2025-09-27'."""
-    match = re.search(r'(\d{4}-\d{2}-\d{2})$', period_key)
+    match = re.search(r"(\d{4}-\d{2}-\d{2})$", period_key)
     return match.group(1) if match else None
 
 
-def _extract_statement(xbrl, stmt_type_key, stmt_label, company_key, filing_date, filing_type):
+def _extract_statement(
+    xbrl, stmt_type_key, stmt_label, company_key, filing_date, filing_type
+):
     rows = []
     try:
         s_info = xbrl.get_statement_by_type(stmt_type_key)
-        if not s_info or not s_info.get('role'):
+        if not s_info or not s_info.get("role"):
             return rows
-        stmt_list = xbrl.get_statement(s_info['role'])
+        stmt_list = xbrl.get_statement(s_info["role"])
         for item in stmt_list:
-            label = item.get('label', '')
-            values = item.get('values', {})
-            if not values or label.endswith('[Abstract]') or label.endswith('[Table]') or label.endswith('[Axis]'):
+            label = item.get("label", "")
+            values = item.get("values", {})
+            if (
+                not values
+                or label.endswith("[Abstract]")
+                or label.endswith("[Table]")
+                or label.endswith("[Axis]")
+            ):
                 continue
             for period_key, value in values.items():
                 period_end = _parse_period_end(period_key)
                 if period_end is None or value is None:
                     continue
                 try:
-                    rows.append((
-                        company_key, period_end, stmt_label,
-                        label, str(filing_date), filing_type, float(value)
-                    ))
+                    rows.append(
+                        (
+                            company_key,
+                            period_end,
+                            stmt_label,
+                            label,
+                            str(filing_date),
+                            filing_type,
+                            float(value),
+                        )
+                    )
                 except (ValueError, TypeError):
                     pass
     except Exception as e:
@@ -50,7 +69,7 @@ def populate_sec_financials():
     identity = os.environ.get("EDGAR_IDENTITY", "StockDataPlatform user@example.com")
     set_identity(identity)
 
-    with open(TICKERS_FILE, 'r') as f:
+    with open(TICKERS_FILE, "r") as f:
         tickers = [line.strip() for line in f if line.strip()]
 
     all_rows = []
@@ -63,8 +82,10 @@ def populate_sec_financials():
                 continue
             try:
                 company = Company(ticker)
-                for filing_type in ['10-K', '10-Q']:
-                    filing = company.get_filings(form=filing_type, amendments=False).latest(1)
+                for filing_type in ["10-K", "10-Q"]:
+                    filing = company.get_filings(
+                        form=filing_type, amendments=False
+                    ).latest(1)
                     if filing is None:
                         continue
                     filing_date = str(filing.filing_date)
@@ -73,8 +94,12 @@ def populate_sec_financials():
                         continue
                     for stmt_key, stmt_label in STATEMENT_TYPES.items():
                         rows = _extract_statement(
-                            xbrl, stmt_key, stmt_label,
-                            company_key, filing_date, filing_type
+                            xbrl,
+                            stmt_key,
+                            stmt_label,
+                            company_key,
+                            filing_date,
+                            filing_type,
                         )
                         all_rows.extend(rows)
                 ticker_count = len([r for r in all_rows if r[0] == company_key])
@@ -91,4 +116,6 @@ def populate_sec_financials():
             all_rows = list(seen.values())
             batch_insert(conn, UPSERT_SEC_FINANCIALS_SQL, all_rows)
 
-    print(f"SEC financials updated: {len(all_rows)} line items across {len(tickers)} tickers")
+    print(
+        f"SEC financials updated: {len(all_rows)} line items across {len(tickers)} tickers"
+    )

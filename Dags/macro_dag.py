@@ -5,13 +5,10 @@ from dag_config import ETL_DEFAULT_ARGS  # noqa: F401 — side-effect: adds scri
 from populate_macro_data import populate_macro_data  # noqa: E402
 
 with DAG(
-    dag_id='macro_daily',
+    dag_id="macro_daily",
     default_args=ETL_DEFAULT_ARGS,
-    schedule_interval='@daily',
+    schedule_interval="@daily",
     catchup=False,
-    tags=['macro', 'daily']
+    tags=["macro", "daily"],
 ) as dag:
-    PythonOperator(
-        task_id='populate_macro_data',
-        python_callable=populate_macro_data
-    )
+    PythonOperator(task_id="populate_macro_data", python_callable=populate_macro_data)

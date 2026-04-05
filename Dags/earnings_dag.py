@@ -5,13 +5,10 @@ from dag_config import ETL_DEFAULT_ARGS  # noqa: F401 — side-effect: adds scri
 from populate_earnings import populate_earnings  # noqa: E402
 
 with DAG(
-    dag_id='earnings_weekly',
+    dag_id="earnings_weekly",
     default_args=ETL_DEFAULT_ARGS,
-    schedule_interval='@weekly',
+    schedule_interval="@weekly",
     catchup=False,
-    tags=['earnings', 'weekly']
+    tags=["earnings", "weekly"],
 ) as dag:
-    PythonOperator(
-        task_id='populate_earnings',
-        python_callable=populate_earnings
-    )
+    PythonOperator(task_id="populate_earnings", python_callable=populate_earnings)

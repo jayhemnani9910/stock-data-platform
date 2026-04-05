@@ -10,10 +10,17 @@ def generate_dates():
     current = START_DATE
     while current <= END_DATE:
         dow = current.weekday()
-        records.append((
-            current, current.year, (current.month - 1) // 3 + 1,
-            current.month, current.day, dow, dow >= 5
-        ))
+        records.append(
+            (
+                current,
+                current.year,
+                (current.month - 1) // 3 + 1,
+                current.month,
+                current.day,
+                dow,
+                dow >= 5,
+            )
+        )
         current += timedelta(days=1)
 
     with get_db_connection() as conn:

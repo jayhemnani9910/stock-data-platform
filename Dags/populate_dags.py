@@ -11,13 +11,48 @@ from populate_sec_financials import populate_sec_financials  # noqa: E402
 from populate_macro_data import populate_macro_data  # noqa: E402
 
 _POPULATE_DAGS = [
-    ('populate_dim_company', populate_dim_company, 'populate_dim_company_table', ['init', 'dimension']),
-    ('populate_dim_date', generate_dates, 'populate_dim_date_table', ['init', 'dimension']),
-    ('populate_fact_stock_price', populate_fact_stock_price, 'populate_fact_stock_price_table', ['fact', 'stock']),
-    ('populate_fundamentals', populate_company_fundamentals, 'populate_fundamentals_table', ['init', 'fundamentals']),
-    ('populate_earnings', populate_earnings, 'populate_earnings_table', ['init', 'earnings']),
-    ('populate_sec_financials', populate_sec_financials, 'populate_sec_financials_table', ['init', 'sec']),
-    ('populate_macro_data', populate_macro_data, 'populate_macro_data_table', ['init', 'macro']),
+    (
+        "populate_dim_company",
+        populate_dim_company,
+        "populate_dim_company_table",
+        ["init", "dimension"],
+    ),
+    (
+        "populate_dim_date",
+        generate_dates,
+        "populate_dim_date_table",
+        ["init", "dimension"],
+    ),
+    (
+        "populate_fact_stock_price",
+        populate_fact_stock_price,
+        "populate_fact_stock_price_table",
+        ["fact", "stock"],
+    ),
+    (
+        "populate_fundamentals",
+        populate_company_fundamentals,
+        "populate_fundamentals_table",
+        ["init", "fundamentals"],
+    ),
+    (
+        "populate_earnings",
+        populate_earnings,
+        "populate_earnings_table",
+        ["init", "earnings"],
+    ),
+    (
+        "populate_sec_financials",
+        populate_sec_financials,
+        "populate_sec_financials_table",
+        ["init", "sec"],
+    ),
+    (
+        "populate_macro_data",
+        populate_macro_data,
+        "populate_macro_data_table",
+        ["init", "macro"],
+    ),
 ]
 
 for dag_id, callable_fn, task_id, tags in _POPULATE_DAGS:
@@ -26,7 +61,7 @@ for dag_id, callable_fn, task_id, tags in _POPULATE_DAGS:
         default_args=DEFAULT_ARGS,
         schedule_interval=None,
         catchup=False,
-        tags=tags
+        tags=tags,
     ) as dag:
         PythonOperator(task_id=task_id, python_callable=callable_fn)
 
