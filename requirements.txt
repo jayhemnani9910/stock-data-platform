@@ -1,7 +1,7 @@
-yfinance
-pandas
-numpy
-kafka-python
-psycopg2-binary
-edgartools
-fredapi
+yfinance==1.2.0
+pandas==3.0.1
+numpy==2.4.3
+kafka-python==2.3.0
+psycopg2-binary==2.9.11
+edgartools==5.28.3
+fredapi==0.5.2
