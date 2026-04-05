@@ -162,3 +162,13 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 - **Database**: TimescaleDB (PostgreSQL 14 + time-series extensions)
 - **Containerization**: Docker Compose (7 services)
 - **Language**: Python
+
+---
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
