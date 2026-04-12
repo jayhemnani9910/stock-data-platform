@@ -6,4 +6,4 @@ psycopg2-binary==2.9.11
 edgartools==5.28.3
 fredapi==0.5.2
 pytest==8.3.5
-pytest-cov==6.1.1
+pytest-cov==7.1.0
