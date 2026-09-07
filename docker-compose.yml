@@ -43,6 +43,9 @@ services:
       context: .
       dockerfile: Dockerfile.airflow
     container_name: airflow-webserver
+    # Run as the host user so bind-mounted paths under ./Dags stay writable.
+    # Airflow images expect an arbitrary uid with GID 0; /opt/airflow is group-writable.
+    user: "${AIRFLOW_UID:-50000}:0"
     restart: "no"
     depends_on:
       - timescaledb
@@ -64,6 +67,9 @@ services:
       context: .
       dockerfile: Dockerfile.airflow
     container_name: airflow-scheduler
+    # Run as the host user so bind-mounted paths under ./Dags stay writable.
+    # Airflow images expect an arbitrary uid with GID 0; /opt/airflow is group-writable.
+    user: "${AIRFLOW_UID:-50000}:0"
     restart: "no"
     depends_on:
       - timescaledb
