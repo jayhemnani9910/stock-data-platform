@@ -37,15 +37,24 @@ services:
     volumes:
       - ./data/db:/var/lib/postgresql/data
       - ./SQL/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-data226} -d ${POSTGRES_DB:-stockdw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   airflow-webserver:
     build:
       context: .
       dockerfile: Dockerfile.airflow
     container_name: airflow-webserver
-    restart: always
+    # Run as the host user so bind-mounted paths under ./Dags stay writable.
+    # Airflow images expect an arbitrary uid with GID 0; /opt/airflow is group-writable.
+    user: "${AIRFLOW_UID:-50000}:0"
+    restart: "no"
     depends_on:
-      - timescaledb
+      timescaledb:
+        condition: service_healthy
     environment:
       <<: *airflow-env
     volumes: *airflow-volumes
@@ -64,9 +73,13 @@ services:
       context: .
       dockerfile: Dockerfile.airflow
     container_name: airflow-scheduler
-    restart: always
+    # Run as the host user so bind-mounted paths under ./Dags stay writable.
+    # Airflow images expect an arbitrary uid with GID 0; /opt/airflow is group-writable.
+    user: "${AIRFLOW_UID:-50000}:0"
+    restart: "no"
     depends_on:
-      - timescaledb
+      timescaledb:
+        condition: service_healthy
     environment:
       <<: *airflow-env
     volumes: *airflow-volumes
@@ -114,8 +127,9 @@ services:
     environment:
       <<: *db-env
       KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-stock-data-platform-kafka:9092}
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-stock-data}
       STOCK_TICKERS: ${STOCK_TICKERS:-AAPL,AMZN,DIS,GOOG,JPM,META,MSFT,NFLX,NVDA,TSLA}
-    restart: always
+    restart: "no"
 
   kafka-consumer:
     build:
@@ -130,4 +144,5 @@ services:
     environment:
       <<: *db-env
       KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-stock-data-platform-kafka:9092}
-    restart: always
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-stock-data}
+    restart: "no"

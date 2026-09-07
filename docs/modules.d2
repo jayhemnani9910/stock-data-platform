@@ -34,13 +34,7 @@ dags: Airflow DAGs {
   etl: "etl_stock_data_dag.py\n─────────────────\nextract_data()\ntransform_data()\nload_data()\nexport_30_day_csvs()" {
     shape: class
   }
-  dim_date: "populate_dim_date_dag.py" {
-    shape: class
-  }
-  dim_company: "populate_dim_company_dag.py" {
-    shape: class
-  }
-  fact: "populate_fact_stock_price_dag.py" {
+  populate: "populate_dags.py\n─────────────────\npopulate_dim_company\npopulate_dim_date\npopulate_fundamentals\npopulate_earnings\npopulate_sec_financials\npopulate_macro_data" {
     shape: class
   }
   monthly: "monthly_aggregate_dag.py" {
@@ -54,9 +48,6 @@ scripts: Population Scripts {
     shape: class
   }
   pop_company: "scripts/populate_dim_company.py\n─────────────────\npopulate_dim_company()" {
-    shape: class
-  }
-  pop_fact: "scripts/populate_fact_stock_price.py\n─────────────────\npopulate_fact_stock_price()" {
     shape: class
   }
 }
@@ -89,17 +80,15 @@ dags.etl -> shared.dag_config: imports
 dags.etl -> shared.db_utils: imports
 dags.etl -> external.yfinance: imports
 dags.etl -> external.pandas: imports
-dags.dim_date -> shared.dag_config: imports
-dags.dim_date -> scripts.pop_date: imports
-dags.dim_company -> shared.dag_config: imports
-dags.dim_company -> scripts.pop_company: imports
-dags.fact -> shared.dag_config: imports
-dags.fact -> scripts.pop_fact: imports
+dags.populate -> shared.dag_config: imports
+dags.populate -> scripts.pop_date: imports
+dags.populate -> shared.dag_config: imports
+dags.populate -> scripts.pop_company: imports
+dags.populate -> shared.dag_config: imports
 dags.monthly -> shared.dag_config: imports
 dags.monthly -> sql.agg: executes
 
 scripts.pop_date -> shared.db_utils: imports
 scripts.pop_company -> shared.db_utils: imports
-scripts.pop_fact -> shared.db_utils: imports
 
 shared.db_utils -> external.psycopg2: imports

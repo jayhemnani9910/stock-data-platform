@@ -21,8 +21,8 @@
 Tracks **10 major US equities** (AAPL, AMZN, GOOG, META, MSFT, NFLX, NVDA, TSLA, JPM, DIS) through a fully containerized pipeline:
 
 - **Streams** live market data via Kafka (producer → broker → consumer)
-- **Orchestrates** 10 Airflow DAGs for ETL, fundamentals, earnings, SEC filings, and macro data
-- **Warehouses** everything in a TimescaleDB star schema (4 dimension + 5 fact tables)
+- **Orchestrates** 22 Airflow DAGs for ETL, fundamentals, earnings, SEC filings, and macro data
+- **Warehouses** everything in a TimescaleDB star schema (3 dimension + 6 fact tables)
 - **Visualizes** results on a Bloomberg Terminal-style [dashboard](https://jayhemnani9910.github.io/stock-data-platform/dashboard.html) with Chart.js
 
 ### Data Sources
@@ -60,7 +60,7 @@ The landing page features a Bloomberg-style ticker tape and architecture overvie
 
 | Service | Image | Port | Role |
 |---------|-------|------|------|
-| `timescaledb` | timescale/timescaledb:latest-pg14 | 5432 | Star-schema warehouse |
+| `timescaledb` | timescale/timescaledb:latest-pg14 | 5434 | Star-schema warehouse |
 | `airflow-webserver` | Custom (Dockerfile.airflow) | 8081 | DAG monitoring UI |
 | `airflow-scheduler` | Custom (Dockerfile.airflow) | — | DAG execution engine |
 | `zookeeper` | confluentinc/cp-zookeeper | 2181 | Kafka coordination |
@@ -101,6 +101,13 @@ Built on **TimescaleDB** for time-series optimized queries on PostgreSQL 14.
 | `macro_daily` | Daily | Fetch FRED macro indicators |
 | `monthly_aggregate_dag` | Monthly | Compute monthly price aggregations |
 | `csv_export_dag` | Triggered | Export last 30 days to CSV per ticker |
+| `populate_fundamentals` | On-demand | One-off fundamentals backfill |
+| `populate_earnings` | On-demand | One-off earnings backfill |
+| `populate_sec_financials` | On-demand | One-off SEC filings backfill |
+| `populate_macro_data` | On-demand | One-off FRED macro backfill |
+
+That is 22 DAGs in total: 10 per-ticker ETL DAGs plus the 12 listed here.
+
 
 ---
 
@@ -187,7 +194,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 | **Containerization** | Docker Compose (7 services) |
 | **CI/CD** | GitHub Actions (ruff lint + pytest) |
 | **Frontend** | GitHub Pages + Chart.js |
-| **Language** | Python 3.12 |
+| **Language** | Python 3.12 locally; the Airflow image is python 3.11 |
 
 ---
 

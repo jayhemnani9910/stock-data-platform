@@ -190,7 +190,7 @@ async function renderMacro() {
     borderWidth: 1.5,
     pointRadius: 0,
     tension: 0.3,
-    yAxisID: id === 'GDP' || id === 'CPIAUCSL' ? 'y1' : 'y',
+    yAxisID: id === 'GDP' ? 'y1' : id === 'CPIAUCSL' ? 'y2' : 'y',
   }));
 
   new Chart(document.getElementById('macroChart'), {
@@ -204,7 +204,10 @@ async function renderMacro() {
       scales: {
         x: { type: 'time', time: { unit: 'quarter' }, grid: { display: false } },
         y: { position: 'left', grid: { color: GRID_COLOR }, title: { display: true, text: 'Rate / %', color: TEXT_MUTED } },
-        y1: { position: 'right', grid: { display: false }, title: { display: true, text: 'Index / $B', color: TEXT_MUTED } },
+        y1: { position: 'right', grid: { display: false }, title: { display: true, text: 'GDP ($B)', color: TEXT_MUTED } },
+        // CPI sits around 320 while GDP is around 30000. Sharing one axis
+        // flattens CPI onto the baseline, so it gets its own.
+        y2: { position: 'right', grid: { display: false }, title: { display: true, text: 'CPI (index)', color: TEXT_MUTED } },
       },
     },
   });
@@ -216,12 +219,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const el = document.getElementById('lastUpdated');
   if (el) el.textContent = 'Data snapshot \u2014 ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  await Promise.all([
+  // allSettled, not all: one widget whose JSON is missing or malformed must
+  // not reject the whole chain and leave every .fade-in element invisible.
+  const results = await Promise.allSettled([
     renderPriceChart(),
     renderFundamentalsTable(),
     renderEarnings(),
     renderMacro(),
   ]);
+  results.forEach((r) => {
+    if (r.status === 'rejected') console.error('widget failed to render:', r.reason);
+  });
 
   document.querySelectorAll('.fade-in').forEach((el, i) => {
     setTimeout(() => el.classList.add('visible'), i * 80);

@@ -45,13 +45,17 @@ def export_price_summary(conn):
 
 def export_fundamentals(conn):
     with conn.cursor() as cur:
+        # DISTINCT ON gives each ticker its own latest row. A single global
+        # MAX(date) drops any ticker whose refresh failed that day, even though
+        # it still has perfectly good fundamentals from an earlier date.
         cur.execute("""
-            SELECT d.ticker, f.market_cap, f.trailing_pe, f.forward_pe,
+            SELECT DISTINCT ON (d.ticker)
+                   d.ticker, f.market_cap, f.trailing_pe, f.forward_pe,
                    f.price_to_book, f.dividend_yield, f.beta, f.week_52_high, f.week_52_low
             FROM fact_company_fundamentals f
             JOIN dim_company d ON f.company_key = d.company_key
-            WHERE f.date = (SELECT MAX(date) FROM fact_company_fundamentals)
-            ORDER BY d.ticker
+            WHERE d.is_current
+            ORDER BY d.ticker, f.date DESC
         """)
         rows = cur.fetchall()
     return _serialize(

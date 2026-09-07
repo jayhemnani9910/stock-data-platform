@@ -30,3 +30,22 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v --tb=short
+
+  dag-import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build the Airflow image
+        run: docker build -f Dockerfile.airflow -t sdp-airflow .
+
+      - name: Import every DAG and run the DAG tests
+        run: |
+          docker run --rm \
+            -v "$PWD/Dags:/opt/airflow/dags:ro" \
+            -v "$PWD/scripts:/opt/airflow/scripts:ro" \
+            -v "$PWD/tests:/opt/airflow/tests:ro" \
+            -e AIRFLOW__CORE__LOAD_EXAMPLES=False \
+            -e AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags \
+            sdp-airflow \
+            python -m pytest /opt/airflow/tests/dag -q

@@ -5,7 +5,6 @@ from populate_company_fundamentals import populate_company_fundamentals  # noqa:
 from populate_dim_company import populate_dim_company  # noqa: E402
 from populate_dim_date import generate_dates  # noqa: E402
 from populate_earnings import populate_earnings  # noqa: E402
-from populate_fact_stock_price import populate_fact_stock_price  # noqa: E402
 from populate_macro_data import populate_macro_data  # noqa: E402
 from populate_sec_financials import populate_sec_financials  # noqa: E402
 
@@ -21,12 +20,6 @@ _POPULATE_DAGS = [
         generate_dates,
         "populate_dim_date_table",
         ["init", "dimension"],
-    ),
-    (
-        "populate_fact_stock_price",
-        populate_fact_stock_price,
-        "populate_fact_stock_price_table",
-        ["fact", "stock"],
     ),
     (
         "populate_fundamentals",

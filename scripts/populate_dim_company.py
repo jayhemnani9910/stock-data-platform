@@ -39,7 +39,7 @@ def populate_dim_company():
         batch_insert(
             conn,
             "INSERT INTO dim_company (ticker, company_name, sector, industry, exchange) "
-            "VALUES %s ON CONFLICT (ticker) DO NOTHING",
+            "VALUES %s ON CONFLICT (ticker) WHERE is_current DO NOTHING",
             companies,
         )
 

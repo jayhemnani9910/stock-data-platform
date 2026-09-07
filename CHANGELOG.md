@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 - Real-time Kafka streaming pipeline (producer + consumer)
 - Airflow DAGs: ETL, fundamentals, earnings, SEC filings, macro data
-- TimescaleDB star schema with 4 dimension and 5 fact tables
+- TimescaleDB star schema with 3 dimension and 6 fact tables
 - Docker Compose orchestration (7 services)
 - GitHub Pages landing page and interactive dashboard
 - CI workflow with ruff linting and formatting

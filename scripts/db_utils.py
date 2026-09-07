@@ -76,6 +76,22 @@ def upsert_stock_prices(conn, rows, page_size=500):
     batch_insert(conn, UPSERT_STOCK_PRICE_SQL, rows, page_size=page_size)
 
 
+UPSERT_STREAMING_PRICE_SQL = """
+    INSERT INTO fact_stock_price_daily (date, company_key, open, high, low, close, volume)
+    VALUES %s
+    ON CONFLICT (date, company_key) DO UPDATE
+    SET open = fact_stock_price_daily.open,
+        high = GREATEST(fact_stock_price_daily.high, EXCLUDED.high),
+        low = LEAST(fact_stock_price_daily.low, EXCLUDED.low),
+        close = EXCLUDED.close,
+        volume = GREATEST(fact_stock_price_daily.volume, EXCLUDED.volume)
+"""
+
+
+def upsert_streaming_prices(conn, rows, page_size=500):
+    batch_insert(conn, UPSERT_STREAMING_PRICE_SQL, rows, page_size=page_size)
+
+
 UPSERT_FUNDAMENTALS_SQL = """
     INSERT INTO fact_company_fundamentals
         (date, company_key, market_cap, trailing_pe, forward_pe, price_to_book,

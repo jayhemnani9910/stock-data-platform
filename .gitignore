@@ -10,8 +10,9 @@ __pycache__/
 *.egg-info/
 .eggs/
 
-# Data files
-data/
+# Data files (the warehouse volume at the repo root only; site/data is tracked
+# because GitHub Pages serves it)
+/data/
 
 # IDE
 .idea/
@@ -22,6 +23,9 @@ data/
 # Environment variables
 .env
 *.env
+
+# Claude Code
+.claude/
 
 # OS files
 .DS_Store
