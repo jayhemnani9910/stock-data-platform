@@ -2,42 +2,6 @@
   {
     "series_id": "CPIAUCSL",
     "name": "Consumer Price Index (All Urban)",
-    "date": "2021-04-01",
-    "value": 266.614
-  },
-  {
-    "series_id": "CPIAUCSL",
-    "name": "Consumer Price Index (All Urban)",
-    "date": "2021-05-01",
-    "value": 268.383
-  },
-  {
-    "series_id": "CPIAUCSL",
-    "name": "Consumer Price Index (All Urban)",
-    "date": "2021-06-01",
-    "value": 270.654
-  },
-  {
-    "series_id": "CPIAUCSL",
-    "name": "Consumer Price Index (All Urban)",
-    "date": "2021-07-01",
-    "value": 271.903
-  },
-  {
-    "series_id": "CPIAUCSL",
-    "name": "Consumer Price Index (All Urban)",
-    "date": "2021-08-01",
-    "value": 272.676
-  },
-  {
-    "series_id": "CPIAUCSL",
-    "name": "Consumer Price Index (All Urban)",
-    "date": "2021-09-01",
-    "value": 273.91
-  },
-  {
-    "series_id": "CPIAUCSL",
-    "name": "Consumer Price Index (All Urban)",
     "date": "2021-10-01",
     "value": 276.55
   },
@@ -354,40 +318,34 @@
     "value": 327.46
   },
   {
-    "series_id": "FEDFUNDS",
-    "name": "Federal Funds Effective Rate",
-    "date": "2021-04-01",
-    "value": 0.07
+    "series_id": "CPIAUCSL",
+    "name": "Consumer Price Index (All Urban)",
+    "date": "2026-03-01",
+    "value": 330.293
   },
   {
-    "series_id": "FEDFUNDS",
-    "name": "Federal Funds Effective Rate",
-    "date": "2021-05-01",
-    "value": 0.06
+    "series_id": "CPIAUCSL",
+    "name": "Consumer Price Index (All Urban)",
+    "date": "2026-04-01",
+    "value": 332.407
   },
   {
-    "series_id": "FEDFUNDS",
-    "name": "Federal Funds Effective Rate",
-    "date": "2021-06-01",
-    "value": 0.08
+    "series_id": "CPIAUCSL",
+    "name": "Consumer Price Index (All Urban)",
+    "date": "2026-05-01",
+    "value": 333.979
   },
   {
-    "series_id": "FEDFUNDS",
-    "name": "Federal Funds Effective Rate",
-    "date": "2021-07-01",
-    "value": 0.1
+    "series_id": "CPIAUCSL",
+    "name": "Consumer Price Index (All Urban)",
+    "date": "2026-06-01",
+    "value": 332.568
   },
   {
-    "series_id": "FEDFUNDS",
-    "name": "Federal Funds Effective Rate",
-    "date": "2021-08-01",
-    "value": 0.09
-  },
-  {
-    "series_id": "FEDFUNDS",
-    "name": "Federal Funds Effective Rate",
-    "date": "2021-09-01",
-    "value": 0.08
+    "series_id": "CPIAUCSL",
+    "name": "Consumer Price Index (All Urban)",
+    "date": "2026-07-01",
+    "value": 332.813
   },
   {
     "series_id": "FEDFUNDS",
@@ -708,16 +666,40 @@
     "value": 3.64
   },
   {
-    "series_id": "GDP",
-    "name": "Gross Domestic Product",
-    "date": "2021-04-01",
-    "value": 23425.91
+    "series_id": "FEDFUNDS",
+    "name": "Federal Funds Effective Rate",
+    "date": "2026-03-01",
+    "value": 3.64
   },
   {
-    "series_id": "GDP",
-    "name": "Gross Domestic Product",
-    "date": "2021-07-01",
-    "value": 23982.379
+    "series_id": "FEDFUNDS",
+    "name": "Federal Funds Effective Rate",
+    "date": "2026-04-01",
+    "value": 3.64
+  },
+  {
+    "series_id": "FEDFUNDS",
+    "name": "Federal Funds Effective Rate",
+    "date": "2026-05-01",
+    "value": 3.63
+  },
+  {
+    "series_id": "FEDFUNDS",
+    "name": "Federal Funds Effective Rate",
+    "date": "2026-06-01",
+    "value": 3.63
+  },
+  {
+    "series_id": "FEDFUNDS",
+    "name": "Federal Funds Effective Rate",
+    "date": "2026-07-01",
+    "value": 3.63
+  },
+  {
+    "series_id": "FEDFUNDS",
+    "name": "Federal Funds Effective Rate",
+    "date": "2026-08-01",
+    "value": 3.63
   },
   {
     "series_id": "GDP",
@@ -819,43 +801,19 @@
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2025-10-01",
-    "value": 31442.483
+    "value": 31422.526
   },
   {
-    "series_id": "UNRATE",
-    "name": "Unemployment Rate",
-    "date": "2021-04-01",
-    "value": 6.1
+    "series_id": "GDP",
+    "name": "Gross Domestic Product",
+    "date": "2026-01-01",
+    "value": 31865.721
   },
   {
-    "series_id": "UNRATE",
-    "name": "Unemployment Rate",
-    "date": "2021-05-01",
-    "value": 5.8
-  },
-  {
-    "series_id": "UNRATE",
-    "name": "Unemployment Rate",
-    "date": "2021-06-01",
-    "value": 5.9
-  },
-  {
-    "series_id": "UNRATE",
-    "name": "Unemployment Rate",
-    "date": "2021-07-01",
-    "value": 5.4
-  },
-  {
-    "series_id": "UNRATE",
-    "name": "Unemployment Rate",
-    "date": "2021-08-01",
-    "value": 5.1
-  },
-  {
-    "series_id": "UNRATE",
-    "name": "Unemployment Rate",
-    "date": "2021-09-01",
-    "value": 4.7
+    "series_id": "GDP",
+    "name": "Gross Domestic Product",
+    "date": "2026-04-01",
+    "value": 32486.066
   },
   {
     "series_id": "UNRATE",
@@ -1174,5 +1132,41 @@
     "name": "Unemployment Rate",
     "date": "2026-02-01",
     "value": 4.4
+  },
+  {
+    "series_id": "UNRATE",
+    "name": "Unemployment Rate",
+    "date": "2026-03-01",
+    "value": 4.3
+  },
+  {
+    "series_id": "UNRATE",
+    "name": "Unemployment Rate",
+    "date": "2026-04-01",
+    "value": 4.3
+  },
+  {
+    "series_id": "UNRATE",
+    "name": "Unemployment Rate",
+    "date": "2026-05-01",
+    "value": 4.3
+  },
+  {
+    "series_id": "UNRATE",
+    "name": "Unemployment Rate",
+    "date": "2026-06-01",
+    "value": 4.2
+  },
+  {
+    "series_id": "UNRATE",
+    "name": "Unemployment Rate",
+    "date": "2026-07-01",
+    "value": 4.1
+  },
+  {
+    "series_id": "UNRATE",
+    "name": "Unemployment Rate",
+    "date": "2026-08-01",
+    "value": 4.1
   }
 ]
