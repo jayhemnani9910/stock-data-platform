@@ -45,7 +45,33 @@ def _connect_kafka():
     raise ConnectionError(f"Failed to connect to Kafka after {MAX_RETRIES} attempts")
 
 
+def _collapse_batch(batch):
+    """Merge rows that share (date, company_key) before the upsert.
+
+    execute_values sends the whole batch as one INSERT, and Postgres rejects a
+    statement whose rows collide on the conflict target with "ON CONFLICT DO
+    UPDATE command cannot affect row a second time". The producer emits one tick
+    per ticker per cycle, all stamped with the same calendar date, so any batch
+    spanning more than one cycle collides and the entire batch was discarded.
+
+    Collapse with the same rule the SQL uses: first open, widest high and low,
+    latest close, largest volume.
+    """
+    merged = {}
+    for date, key, open_, high, low, close, volume in batch:
+        prev = merged.get((date, key))
+        if prev is None:
+            merged[(date, key)] = [date, key, open_, high, low, close, volume]
+        else:
+            prev[3] = max(prev[3], high)
+            prev[4] = min(prev[4], low)
+            prev[5] = close
+            prev[6] = max(prev[6], volume)
+    return [tuple(r) for r in merged.values()]
+
+
 def _flush_batch(conn, batch):
+    batch = _collapse_batch(batch)
     try:
         upsert_streaming_prices(conn, batch)
         print(f"Committed batch of {len(batch)} messages")
