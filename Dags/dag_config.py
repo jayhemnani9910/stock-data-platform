@@ -15,7 +15,9 @@ ETL_DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=2),
 }
 
-TICKERS_FILE = "/opt/airflow/dags/tickers.txt"
+# Honour the same env var the populate_*.py scripts read, so overriding it
+# changes both which tickers are loaded and which ETL DAGs are created.
+TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
 
 
 def load_tickers():
