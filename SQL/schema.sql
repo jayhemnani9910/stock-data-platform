@@ -98,3 +98,14 @@ CREATE TABLE IF NOT EXISTS fact_macro_data (
     value DOUBLE PRECISION NOT NULL,
     PRIMARY KEY (date, indicator_key)
 );
+
+-- Time-series optimisation. Both tables are keyed on date and grow forever, so
+-- they become hypertables and get chunking and partition pruning. Every other
+-- fact table is small and bounded, so plain tables are the right shape for them.
+-- migrate_data handles an existing non-empty table; if_not_exists makes reruns safe.
+SELECT create_hypertable('fact_stock_price_daily', 'date',
+                         chunk_time_interval => INTERVAL '1 year',
+                         migrate_data => TRUE, if_not_exists => TRUE);
+SELECT create_hypertable('fact_macro_data', 'date',
+                         chunk_time_interval => INTERVAL '5 years',
+                         migrate_data => TRUE, if_not_exists => TRUE);
