@@ -79,7 +79,7 @@ async function renderFundamentalsTable() {
       <td>${formatMarketCap(d.market_cap)}</td>
       <td>${formatNum(d.trailing_pe)}</td>
       <td>${formatNum(d.forward_pe)}</td>
-      <td>${d.dividend_yield ? (d.dividend_yield * 100).toFixed(2) + '%' : '\u2014'}</td>
+      <td>${d.dividend_yield ? d.dividend_yield.toFixed(2) + '%' : '\u2014'}</td>
       <td>${formatNum(d.beta)}</td>
     </tr>
   `).join('');

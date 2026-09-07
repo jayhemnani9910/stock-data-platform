@@ -65,7 +65,7 @@ def _get_last_loaded_date(ticker):
         return None
 
 
-def extract_data(ticker, ti):
+def extract_data(ticker, ti, ts_nodash):
     try:
         end_date = datetime.today()
         last_date = _get_last_loaded_date(ticker)
@@ -80,7 +80,7 @@ def extract_data(ticker, ti):
         if df.empty:
             raise ValueError("Downloaded dataframe is empty.")
         df = _normalize_columns(df, ticker)
-        run_suffix = ti.ts_nodash or datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        run_suffix = ts_nodash
         raw_path = _stage_path_for_run(ticker, "raw", run_suffix)
         with gzip.open(raw_path, "wt", encoding="utf-8") as f:
             f.write(df.to_json(orient="split"))
@@ -90,7 +90,7 @@ def extract_data(ticker, ti):
         raise Exception(f"Extract Error [{ticker}]: {str(e)}") from e
 
 
-def transform_data(ticker, ti):
+def transform_data(ticker, ti, ts_nodash):
     try:
         raw_path = ti.xcom_pull(key="raw_path", task_ids=f"{ticker}_extract")
         if not raw_path:
@@ -102,7 +102,7 @@ def transform_data(ticker, ti):
         df.dropna(inplace=True)
         df = df[df["volume"] > 0]
         df.index = pd.to_datetime(df.index)
-        run_suffix = ti.ts_nodash or datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        run_suffix = ts_nodash
         cleaned_path = _stage_path_for_run(ticker, "cleaned", run_suffix)
         with gzip.open(cleaned_path, "wt", encoding="utf-8") as f:
             f.write(df.to_json(orient="split"))
