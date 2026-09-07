@@ -1,5 +1,6 @@
 import gzip
 import os
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -16,6 +17,22 @@ STANDARD_COLS = ["open", "high", "low", "close", "volume"]
 
 _BASE_DIR = "/tmp/stock_data_platform"
 os.makedirs(_BASE_DIR, exist_ok=True)
+_STAGE_MAX_AGE_SECONDS = 24 * 3600
+
+
+def _prune_stale_stage_files():
+    """Drop staged files older than a day.
+
+    load_data removes the pair it consumed, but when extract succeeds and
+    transform fails nothing ever runs load, so the raw file is left behind.
+    """
+    cutoff = time.time() - _STAGE_MAX_AGE_SECONDS
+    for path in Path(_BASE_DIR).glob("*.json.gz"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _stage_path_for_run(ticker, stage, run_suffix):
@@ -47,26 +64,30 @@ def _normalize_columns(df, ticker):
 
 
 def _get_last_loaded_date(ticker):
-    """Get the most recent date loaded for this ticker, or None for first run."""
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT MAX(f.date) FROM fact_stock_price_daily f
-                    JOIN dim_company d ON f.company_key = d.company_key
-                    WHERE d.ticker = %s AND d.is_current = TRUE
-                """,
-                    (ticker,),
-                )
-                row = cur.fetchone()
-                return row[0] if row and row[0] else None
-    except Exception:
-        return None
+    """Most recent date loaded for this ticker, or None when nothing is loaded yet.
+
+    Database errors are deliberately allowed to propagate. Swallowing them here
+    returns None, which extract_data cannot tell apart from a genuine first run,
+    so a brief outage silently turns an incremental pull into a 25-year refetch
+    and hides the outage itself.
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT MAX(f.date) FROM fact_stock_price_daily f
+                JOIN dim_company d ON f.company_key = d.company_key
+                WHERE d.ticker = %s AND d.is_current = TRUE
+            """,
+                (ticker,),
+            )
+            row = cur.fetchone()
+            return row[0] if row and row[0] else None
 
 
 def extract_data(ticker, ti, ts_nodash):
     try:
+        _prune_stale_stage_files()
         end_date = datetime.today()
         last_date = _get_last_loaded_date(ticker)
         if last_date:
