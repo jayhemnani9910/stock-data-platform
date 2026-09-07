@@ -59,7 +59,10 @@ def _resolve_company_keys(tickers):
 
 def _fetch_ticker_data(ticker_obj, ticker):
     """Fetch latest 1-min bar for a single ticker. Returns (ticker, payload) or (ticker, None)."""
-    data = ticker_obj.history(period="5m", interval="1m").tail(1)
+    # period must be one of yfinance's accepted windows (1d, 5d, 1mo, ...).
+    # "5m" is an interval, not a period, and silently returned an empty frame
+    # for every ticker on every cycle, so nothing was ever produced.
+    data = ticker_obj.history(period="1d", interval="1m").tail(1)
     if data.empty:
         return ticker, None
     last_ts = data.index[-1]
