@@ -2,7 +2,7 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 CREATE TABLE IF NOT EXISTS dim_company (
     company_key SERIAL PRIMARY KEY,
-    ticker TEXT NOT NULL UNIQUE,
+    ticker TEXT NOT NULL,
     company_name TEXT NOT NULL,
     sector TEXT,
     industry TEXT,
@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS dim_company (
     is_current BOOLEAN NOT NULL DEFAULT TRUE,
     effective_date DATE NOT NULL DEFAULT CURRENT_DATE
 );
+
+-- SCD Type 2: many rows may share a ticker, but only one may be current.
+CREATE UNIQUE INDEX IF NOT EXISTS dim_company_ticker_current_idx
+    ON dim_company (ticker) WHERE is_current;
 
 CREATE TABLE IF NOT EXISTS dim_date (
     date DATE PRIMARY KEY,
