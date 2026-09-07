@@ -6,7 +6,7 @@ import time
 from kafka import KafkaConsumer
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "scripts"))
-from db_utils import connect_db, upsert_stock_prices
+from db_utils import connect_db, upsert_streaming_prices
 
 BATCH_SIZE = 50
 FLUSH_INTERVAL = 10
@@ -17,6 +17,14 @@ BACKOFF_BASE = 5
 BACKOFF_CAP = 60
 
 
+def _deserialize(m):
+    try:
+        return json.loads(m.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        print(f"Malformed message, could not decode JSON: {e}")
+        return None
+
+
 def _connect_kafka():
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -25,7 +33,8 @@ def _connect_kafka():
                 bootstrap_servers=[os.environ.get("KAFKA_BOOTSTRAP", "stock-data-platform-kafka:9092")],
                 auto_offset_reset="earliest",
                 group_id="stock-data-consumer",
-                value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                value_deserializer=_deserialize,
+                enable_auto_commit=False,
             )
             print("Connected to Kafka broker.")
             return consumer
@@ -38,9 +47,9 @@ def _connect_kafka():
 
 def _flush_batch(conn, batch):
     try:
-        upsert_stock_prices(conn, batch)
+        upsert_streaming_prices(conn, batch)
         print(f"Committed batch of {len(batch)} messages")
-        return conn
+        return conn, True
     except Exception as e:
         print(f"Batch insert failed: {e}. Reconnecting to DB...")
         try:
@@ -49,12 +58,13 @@ def _flush_batch(conn, batch):
             pass
         conn = connect_db()
         try:
-            upsert_stock_prices(conn, batch)
+            upsert_streaming_prices(conn, batch)
             print(f"Committed batch of {len(batch)} messages after reconnect")
+            return conn, True
         except Exception as e2:
             conn.rollback()
             print(f"Batch insert failed after reconnect: {e2}. Discarding {len(batch)} messages.")
-        return conn
+            return conn, False
 
 
 def main():
@@ -69,6 +79,8 @@ def main():
             for tp, messages in records.items():
                 for message in messages:
                     data = message.value
+                    if data is None:
+                        continue
                     try:
                         batch.append(
                             (
@@ -86,14 +98,17 @@ def main():
 
             now = time.time()
             if batch and (len(batch) >= BATCH_SIZE or now - last_flush >= FLUSH_INTERVAL):
-                conn = _flush_batch(conn, batch)
+                conn, ok = _flush_batch(conn, batch)
+                if ok:
+                    consumer.commit()
                 batch = []
                 last_flush = now
     finally:
         if batch:
             try:
-                upsert_stock_prices(conn, batch)
+                upsert_streaming_prices(conn, batch)
                 print(f"Committed final batch of {len(batch)} messages")
+                consumer.commit()
             except Exception as e:
                 print(f"Failed to commit final batch: {e}")
         consumer.close()
