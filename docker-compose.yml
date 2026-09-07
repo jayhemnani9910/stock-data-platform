@@ -37,6 +37,11 @@ services:
     volumes:
       - ./data/db:/var/lib/postgresql/data
       - ./SQL/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-data226} -d ${POSTGRES_DB:-stockdw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   airflow-webserver:
     build:
@@ -48,7 +53,8 @@ services:
     user: "${AIRFLOW_UID:-50000}:0"
     restart: "no"
     depends_on:
-      - timescaledb
+      timescaledb:
+        condition: service_healthy
     environment:
       <<: *airflow-env
     volumes: *airflow-volumes
@@ -72,7 +78,8 @@ services:
     user: "${AIRFLOW_UID:-50000}:0"
     restart: "no"
     depends_on:
-      - timescaledb
+      timescaledb:
+        condition: service_healthy
     environment:
       <<: *airflow-env
     volumes: *airflow-volumes
