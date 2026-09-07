@@ -43,7 +43,7 @@ services:
       context: .
       dockerfile: Dockerfile.airflow
     container_name: airflow-webserver
-    restart: always
+    restart: "no"
     depends_on:
       - timescaledb
     environment:
@@ -64,7 +64,7 @@ services:
       context: .
       dockerfile: Dockerfile.airflow
     container_name: airflow-scheduler
-    restart: always
+    restart: "no"
     depends_on:
       - timescaledb
     environment:
@@ -115,7 +115,7 @@ services:
       <<: *db-env
       KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-stock-data-platform-kafka:9092}
       STOCK_TICKERS: ${STOCK_TICKERS:-AAPL,AMZN,DIS,GOOG,JPM,META,MSFT,NFLX,NVDA,TSLA}
-    restart: always
+    restart: "no"
 
   kafka-consumer:
     build:
@@ -130,4 +130,4 @@ services:
     environment:
       <<: *db-env
       KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-stock-data-platform-kafka:9092}
-    restart: always
+    restart: "no"
