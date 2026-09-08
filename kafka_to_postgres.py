@@ -93,6 +93,23 @@ def _flush_batch(conn, batch):
             return conn, False
 
 
+def _commit_offsets(consumer):
+    """Commit offsets, surviving a group rebalance.
+
+    A broker restart expires the group membership, so the next commit raises
+    CommitFailedError. kafka-python rejoins on the following poll and the
+    upsert is idempotent, so a failed commit costs a few replayed ticks.
+    Letting it propagate killed the consumer instead, and the service does not
+    restart, so streaming stayed down until someone noticed.
+    """
+    try:
+        consumer.commit()
+        return True
+    except Exception as e:
+        print(f"Offset commit failed: {e}. Those messages will be redelivered.")
+        return False
+
+
 def main():
     consumer = _connect_kafka()
     conn = connect_db()
@@ -126,17 +143,19 @@ def main():
             if batch and (len(batch) >= BATCH_SIZE or now - last_flush >= FLUSH_INTERVAL):
                 conn, ok = _flush_batch(conn, batch)
                 if ok:
-                    consumer.commit()
+                    _commit_offsets(consumer)
                 batch = []
                 last_flush = now
     finally:
         if batch:
-            try:
-                upsert_streaming_prices(conn, batch)
-                print(f"Committed final batch of {len(batch)} messages")
-                consumer.commit()
-            except Exception as e:
-                print(f"Failed to commit final batch: {e}")
+            # _flush_batch, not a bare upsert: the final batch needs the same
+            # collapsing as every other one. Without it a shutdown batch
+            # spanning two produce cycles hit "ON CONFLICT DO UPDATE command
+            # cannot affect row a second time" and was thrown away.
+            print(f"Shutting down with {len(batch)} buffered messages")
+            conn, ok = _flush_batch(conn, batch)
+            if ok:
+                _commit_offsets(consumer)
         consumer.close()
         conn.close()
 
