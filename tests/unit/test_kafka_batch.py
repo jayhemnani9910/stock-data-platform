@@ -23,6 +23,8 @@ _spec = importlib.util.spec_from_file_location("kafka_to_postgres", os.path.join
 _kp = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_kp)
 _collapse_batch = _kp._collapse_batch
+_flush_batch = _kp._flush_batch
+_commit_offsets = _kp._commit_offsets
 
 DATE = "2026-09-04"
 
@@ -79,3 +81,150 @@ class TestCollapseBatch:
             ("2026-09-05", 1, 102.0, 104.0, 101.0, 103.0, 2000),
         ]
         assert len(_collapse_batch(batch)) == 2
+
+
+class _FakeCursor:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _RecordingConn:
+    """Captures the rows handed to execute_values, so a test can inspect them."""
+
+    def __init__(self):
+        self.rows = None
+
+    def cursor(self):
+        return _FakeCursor()
+
+    def commit(self):
+        pass
+
+    def close(self):
+        pass
+
+
+class TestFlushBatchCollapses:
+    """_flush_batch is the only path to the database, including on shutdown.
+
+    The shutdown path used to call upsert_streaming_prices directly, skipping
+    the collapse, so a final batch spanning two produce cycles was rejected by
+    Postgres and discarded. Every exit route must collapse.
+    """
+
+    def test_flush_collapses_before_the_upsert(self, monkeypatch):
+        seen = {}
+
+        def fake_upsert(conn, rows, page_size=500):
+            seen["rows"] = rows
+
+        monkeypatch.setattr(_kp, "upsert_streaming_prices", fake_upsert)
+        batch = [(DATE, k, 10.0, 11.0, 9.0, 10.5, 100) for k in range(1, 11)]
+        batch += [(DATE, k, 10.1, 12.0, 8.0, 11.0, 300) for k in range(1, 11)]
+
+        _conn, ok = _flush_batch(_RecordingConn(), batch)
+
+        assert ok is True
+        keys = [(r[0], r[1]) for r in seen["rows"]]
+        assert len(keys) == 10, "20 rows over two cycles must collapse to 10"
+        assert len(keys) == len(set(keys)), "no duplicate ON CONFLICT targets may reach Postgres"
+
+
+class TestCommitOffsets:
+    """A broker restart expires group membership and the next commit raises.
+
+    That exception used to propagate out of main() and kill the container,
+    which never came back because the service does not restart.
+    """
+
+    class _OkConsumer:
+        def __init__(self):
+            self.commits = 0
+
+        def commit(self):
+            self.commits += 1
+
+    class _RebalancedConsumer:
+        def commit(self):
+            raise Exception("CommitFailedError: [Error 25] UnknownMemberIdError")
+
+    def test_successful_commit_reports_true(self):
+        consumer = self._OkConsumer()
+        assert _commit_offsets(consumer) is True
+        assert consumer.commits == 1
+
+    def test_rebalance_is_swallowed_not_raised(self):
+        assert _commit_offsets(self._RebalancedConsumer()) is False
+
+
+class _FakeMessage:
+    def __init__(self, value):
+        self.value = value
+
+
+class _ShutdownConsumer:
+    """Delivers two produce cycles, then stops the loop without a flush.
+
+    20 messages is under BATCH_SIZE and arrives inside FLUSH_INTERVAL, so the
+    loop buffers them and never flushes. The second poll ends the run, which
+    leaves main() to drain the batch in its finally block.
+    """
+
+    def __init__(self):
+        self.polls = 0
+        self.commits = 0
+        self.closed = False
+
+    def poll(self, timeout_ms=None):
+        self.polls += 1
+        if self.polls > 1:
+            raise KeyboardInterrupt
+        rows = [
+            {"date": DATE, "company_key": k, "open": 10.0, "high": 11.0, "low": 9.0, "close": 10.5, "volume": 100}
+            for k in range(1, 11)
+        ]
+        rows += [
+            {"date": DATE, "company_key": k, "open": 10.1, "high": 12.0, "low": 8.0, "close": 11.0, "volume": 300}
+            for k in range(1, 11)
+        ]
+        return {"tp": [_FakeMessage(r) for r in rows]}
+
+    def commit(self):
+        self.commits += 1
+
+    def close(self):
+        self.closed = True
+
+
+class TestShutdownDrain:
+    """The regression: main()'s finally block bypassed the collapse.
+
+    It called upsert_streaming_prices directly, so a shutdown batch spanning
+    two produce cycles reached Postgres with duplicate ON CONFLICT targets and
+    was rejected with "cannot affect row a second time", then discarded.
+    A test on _flush_batch alone cannot see this — only the exit path can.
+    """
+
+    def test_final_batch_is_collapsed_before_it_reaches_postgres(self, monkeypatch):
+        seen = {}
+
+        def fake_upsert(conn, rows, page_size=500):
+            keys = [(r[0], r[1]) for r in rows]
+            if len(keys) != len(set(keys)):
+                raise Exception("ON CONFLICT DO UPDATE command cannot affect row a second time")
+            seen["rows"] = rows
+
+        consumer = _ShutdownConsumer()
+        monkeypatch.setattr(_kp, "upsert_streaming_prices", fake_upsert)
+        monkeypatch.setattr(_kp, "_connect_kafka", lambda: consumer)
+        monkeypatch.setattr(_kp, "connect_db", lambda *a, **k: _RecordingConn())
+
+        with pytest.raises(KeyboardInterrupt):
+            _kp.main()
+
+        assert "rows" in seen, "the shutdown batch never reached the database"
+        assert len(seen["rows"]) == 10, "20 buffered rows must collapse to 10 on shutdown"
+        assert consumer.closed is True
