@@ -56,7 +56,7 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 
     pytest tests/ -q
 
-85 unit tests, no database or network needed. This is what CI runs, along with
+88 unit tests, no database or network needed. This is what CI runs, along with
 `ruff check .` and `ruff format --check .`.
 
 ## Safe to run
