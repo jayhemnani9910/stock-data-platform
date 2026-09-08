@@ -168,7 +168,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── schema.sql                 # Star schema DDL (TimescaleDB)
 │   └── aggregate_monthly.sql      # Monthly rollup query
 ├── tests/                         # Unit tests (pytest)
-│   └── unit/                      # 62 tests across 7 modules
+│   └── unit/                      # 85 tests across 9 modules
 ├── site/                          # GitHub Pages (landing page + dashboard)
 ├── docs/                          # Architecture diagrams (D2 format)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB

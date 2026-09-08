@@ -290,12 +290,6 @@
   {
     "series_id": "CPIAUCSL",
     "name": "Consumer Price Index (All Urban)",
-    "date": "2025-10-01",
-    "value": null
-  },
-  {
-    "series_id": "CPIAUCSL",
-    "name": "Consumer Price Index (All Urban)",
     "date": "2025-11-01",
     "value": 325.063
   },
@@ -1102,12 +1096,6 @@
     "name": "Unemployment Rate",
     "date": "2025-09-01",
     "value": 4.4
-  },
-  {
-    "series_id": "UNRATE",
-    "name": "Unemployment Rate",
-    "date": "2025-10-01",
-    "value": null
   },
   {
     "series_id": "UNRATE",
