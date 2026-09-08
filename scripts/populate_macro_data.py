@@ -1,5 +1,6 @@
 import os
 
+import pandas as pd
 from db_utils import (
     UPSERT_MACRO_DATA_SQL,
     batch_insert,
@@ -31,6 +32,17 @@ def _seed_indicators(conn):
     conn.commit()
 
 
+def _series_to_rows(series, indicator_key):
+    """Convert a FRED series into upsert rows, dropping periods with no observation.
+
+    FRED returns NaN for periods it has no reading for (1946 quarters in GDP, the
+    October 2025 BLS gap). NaN satisfies the NOT NULL constraint and Postgres sorts
+    it above every real value, so one leaked row makes MAX() and AVG() return NaN
+    for the whole series. pd.isna covers None, NaN and NaT in one check.
+    """
+    return [(date.date(), indicator_key, float(value)) for date, value in series.items() if not pd.isna(value)]
+
+
 def populate_macro_data():
     api_key = os.environ.get("FRED_API_KEY", "")
     if not api_key or api_key == "your_fred_api_key_here":
@@ -50,9 +62,7 @@ def populate_macro_data():
                 continue
             try:
                 series = fred.get_series(series_id)
-                for date, value in series.items():
-                    if value is not None and str(value) != "NaN":
-                        all_rows.append((date.date(), indicator_key, float(value)))
+                all_rows.extend(_series_to_rows(series, indicator_key))
                 print(f"  {series_id}: {len(series)} data points")
             except Exception as e:
                 print(f"Error fetching {series_id}: {e}")
