@@ -29,6 +29,7 @@ Dags/stock_csvs/*.csv
 
 # Claude Code
 .claude/
+CLAUDE.md
 
 # OS files
 .DS_Store
