@@ -73,16 +73,34 @@ CREATE TABLE IF NOT EXISTS fact_earnings (
     PRIMARY KEY (report_date, company_key)
 );
 
+-- A filing reports the same line item over several windows that share an end
+-- date: a 10-Q carries both the quarter and the year to date. period_start is
+-- therefore part of the key, and period_type says which window a row is, so
+-- quarterly and cumulative figures are never mistaken for each other.
+-- period_start equals period_end for instant facts (the balance sheet).
+--
+-- filing_date/filing_type describe the period only when it is the filing's own
+-- reporting period; for the comparative columns they are NULL. source_filing_*
+-- always records the filing the row was read from.
 CREATE TABLE IF NOT EXISTS fact_sec_financials (
     company_key INT NOT NULL REFERENCES dim_company(company_key),
-    period_end DATE NOT NULL,
     statement_type TEXT NOT NULL,
     line_item TEXT NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    period_type TEXT NOT NULL,
+    fiscal_year INT,
+    fiscal_period TEXT,
     filing_date DATE,
     filing_type TEXT,
+    source_filing_date DATE NOT NULL,
+    source_filing_type TEXT NOT NULL,
     value DOUBLE PRECISION,
-    PRIMARY KEY (company_key, period_end, statement_type, line_item)
+    PRIMARY KEY (company_key, statement_type, line_item, period_start, period_end)
 );
+
+CREATE INDEX IF NOT EXISTS fact_sec_financials_period_idx
+    ON fact_sec_financials (company_key, period_type, period_end DESC);
 
 CREATE TABLE IF NOT EXISTS dim_macro_indicator (
     indicator_key SERIAL PRIMARY KEY,
@@ -109,3 +127,18 @@ SELECT create_hypertable('fact_stock_price_daily', 'date',
 SELECT create_hypertable('fact_macro_data', 'date',
                          chunk_time_interval => INTERVAL '5 years',
                          migrate_data => TRUE, if_not_exists => TRUE);
+
+-- Every fact keyed on a calendar date references the date dimension. Without
+-- these, fact_macro_data silently accumulated 1,618 rows (53% of the table)
+-- whose dates predated dim_date's range and joined to nothing.
+ALTER TABLE fact_stock_price_daily
+    DROP CONSTRAINT IF EXISTS fact_stock_price_daily_date_fkey;
+ALTER TABLE fact_stock_price_daily
+    ADD CONSTRAINT fact_stock_price_daily_date_fkey
+    FOREIGN KEY (date) REFERENCES dim_date(date);
+
+ALTER TABLE fact_macro_data
+    DROP CONSTRAINT IF EXISTS fact_macro_data_date_fkey;
+ALTER TABLE fact_macro_data
+    ADD CONSTRAINT fact_macro_data_date_fkey
+    FOREIGN KEY (date) REFERENCES dim_date(date);

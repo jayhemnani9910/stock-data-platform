@@ -31,8 +31,10 @@ def _load_tickers():
     return [t.strip() for t in tickers_str.split(",") if t.strip()]
 
 
-def _is_market_open():
-    now = datetime.now(ET)
+def _is_market_open(now=None):
+    """True during regular US market hours. `now` is injectable so this is
+    testable without freezing the clock."""
+    now = now or datetime.now(ET)
     if now.weekday() >= 5:
         return False
     return MARKET_OPEN <= now.time() <= MARKET_CLOSE
@@ -57,23 +59,43 @@ def _resolve_company_keys(tickers):
         conn.close()
 
 
+def _day_bar_from_intraday(data):
+    """Fold a day of 1-minute bars into the day's bar so far.
+
+    The payload lands in fact_stock_price_daily, so it has to describe the day,
+    not a minute. Taking .tail(1) instead -- which is what this used to do --
+    published the in-progress minute: across the 6,270 messages sitting in the
+    topic, 97.1% carried volume 0 and 97.0% had open == high == low == close,
+    because the final minute of a yfinance intraday frame is a partial bar with
+    no trades in it yet. A row created from one of those had a zero-width range
+    and a volume of 0 against a real 35 million.
+
+    Open is the session's first print, high and low span the whole day, close
+    is the latest price, and volume is the day's total. Returns None for an
+    empty frame or a day with no volume yet (pre-open), which the caller drops.
+    """
+    if data is None or data.empty:
+        return None
+    volume = int(data["Volume"].sum())
+    if volume <= 0:
+        return None
+    return {
+        "date": data.index[-1].date().isoformat(),
+        "open": float(data["Open"].iloc[0]),
+        "high": float(data["High"].max()),
+        "low": float(data["Low"].min()),
+        "close": float(data["Close"].iloc[-1]),
+        "volume": volume,
+    }
+
+
 def _fetch_ticker_data(ticker_obj, ticker):
-    """Fetch latest 1-min bar for a single ticker. Returns (ticker, payload) or (ticker, None)."""
+    """Fetch the day's bar so far for a single ticker. Returns (ticker, payload) or (ticker, None)."""
     # period must be one of yfinance's accepted windows (1d, 5d, 1mo, ...).
     # "5m" is an interval, not a period, and silently returned an empty frame
     # for every ticker on every cycle, so nothing was ever produced.
-    data = ticker_obj.history(period="1d", interval="1m").tail(1)
-    if data.empty:
-        return ticker, None
-    last_ts = data.index[-1]
-    return ticker, {
-        "date": last_ts.date().isoformat(),
-        "open": float(data["Open"].iloc[-1]),
-        "high": float(data["High"].iloc[-1]),
-        "low": float(data["Low"].iloc[-1]),
-        "close": float(data["Close"].iloc[-1]),
-        "volume": int(data["Volume"].iloc[-1]),
-    }
+    data = ticker_obj.history(period="1d", interval="1m")
+    return ticker, _day_bar_from_intraday(data)
 
 
 def main():

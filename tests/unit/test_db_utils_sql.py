@@ -1,12 +1,8 @@
 """Tests for scripts/db_utils.py — SQL template constant validation."""
 
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
-
 import db_utils
 from db_utils import (
+    UPSERT_COMPANY_SQL,
     UPSERT_EARNINGS_SQL,
     UPSERT_FUNDAMENTALS_SQL,
     UPSERT_MACRO_DATA_SQL,
@@ -58,7 +54,7 @@ class TestSQLTemplates:
         assert "ON CONFLICT" in UPSERT_SEC_FINANCIALS_SQL
 
     def test_sec_financials_sql_columns(self):
-        for col in ["company_key", "period_end", "statement_type", "line_item", "value"]:
+        for col in ["company_key", "statement_type", "line_item", "period_start", "period_end", "value"]:
             assert col in UPSERT_SEC_FINANCIALS_SQL
 
     def test_macro_data_sql_has_upsert(self):
@@ -71,7 +67,7 @@ class TestSQLTemplates:
 
     def test_all_templates_use_values_placeholder(self):
         templates = _all_templates()
-        assert len(templates) >= 6, f"expected every UPSERT template to be discovered, got {sorted(templates)}"
+        assert len(templates) >= 7, f"expected every UPSERT template to be discovered, got {sorted(templates)}"
         for name, sql in templates.items():
             assert "VALUES %s" in sql, f"{name} is missing the VALUES %s placeholder"
 
@@ -113,3 +109,52 @@ class TestStreamingPriceTemplate:
         """The ETL must keep overwriting; only the streaming path merges."""
         assert UPSERT_STREAMING_PRICE_SQL != UPSERT_STOCK_PRICE_SQL
         assert "GREATEST" not in UPSERT_STOCK_PRICE_SQL
+
+
+class TestSecFinancialsTemplate:
+    """A filing reports one line item over several windows sharing an end date.
+    Keying on period_end alone let a 10-Q's nine-month figure overwrite its own
+    quarter — Apple's Q3 FY2026 Net sales was stored as 364,357M (nine months)
+    instead of 109,417M (the quarter)."""
+
+    def test_period_start_is_in_the_conflict_target(self):
+        assert (
+            "ON CONFLICT (company_key, statement_type, line_item, period_start, period_end)"
+            in UPSERT_SEC_FINANCIALS_SQL
+        )
+
+    def test_period_type_is_stored(self):
+        """Without it, nothing downstream can tell a quarter from a year."""
+        assert "period_type" in UPSERT_SEC_FINANCIALS_SQL
+
+    def test_source_filing_is_recorded_separately(self):
+        """filing_date describes the period; source_filing_date describes where
+        the row was read. Conflating them dated Apple's FY2023 income to 2025."""
+        assert "source_filing_date" in UPSERT_SEC_FINANCIALS_SQL
+        assert "source_filing_type" in UPSERT_SEC_FINANCIALS_SQL
+
+    def test_updates_value_on_conflict(self):
+        assert "value = EXCLUDED.value" in UPSERT_SEC_FINANCIALS_SQL
+
+
+class TestCompanyTemplate:
+    """This template lived in populate_dim_company.py — the only UPSERT_*_SQL
+    outside db_utils — so _all_templates() never saw it, despite being the one
+    with a partial-index conflict target that has to match SQL/schema.sql."""
+
+    def test_is_discovered(self):
+        assert "UPSERT_COMPANY_SQL" in _all_templates()
+
+    def test_conflict_target_matches_the_partial_index(self):
+        # SQL/schema.sql: CREATE UNIQUE INDEX ... ON dim_company (ticker) WHERE is_current
+        assert "ON CONFLICT (ticker) WHERE is_current" in UPSERT_COMPANY_SQL
+
+    def test_updates_metadata_but_never_the_ticker(self):
+        for col in ["company_name", "sector", "industry", "exchange"]:
+            assert f"{col} = EXCLUDED.{col}" in UPSERT_COMPANY_SQL
+        assert "ticker = EXCLUDED.ticker" not in UPSERT_COMPANY_SQL
+
+    def test_does_not_touch_company_key(self):
+        """Minting a new key would strand the ticker's existing facts on the
+        retired one, since every loader resolves through get_company_key."""
+        assert "company_key" not in UPSERT_COMPANY_SQL

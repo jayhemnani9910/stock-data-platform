@@ -10,12 +10,10 @@ Observed live: "Discarding 20 messages", exactly two cycles of ten tickers.
 
 import importlib.util
 import os
-import sys
 
 import pytest
 
 _ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-sys.path.insert(0, os.path.join(_ROOT, "scripts"))
 
 pytest.importorskip("kafka", reason="kafka-python not installed")
 
