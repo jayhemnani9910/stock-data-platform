@@ -63,7 +63,7 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 
     pytest tests/ -q
 
-155 unit tests, no database or network needed. This is what CI runs, along with
+168 unit tests, no database or network needed. This is what CI runs, along with
 `ruff check .` and `ruff format --check .`.
 
 They import the real production functions. They used to run against copies, and
@@ -90,8 +90,8 @@ suite, gut a function and confirm the suite goes red before believing it.
   database itself is the `./data/db` bind mount, which `-v` does not remove —
   but do not rely on that.
 - `TRUNCATE fact_stock_price_daily` followed by the ETL DAGs. That is the only
-  way to clear a stale price-adjustment basis, and it refetches 25 years for
-  ten tickers. It is correct, it is slow, and it is not something to do
+  way to clear a stale price-adjustment basis, and it refetches every bar
+  back to 1962 for ten tickers. It is correct, it is slow, and it is not something to do
   unattended.
 - Anything that writes to `.env`. It holds a live FRED API key.
 - `sec_financials_quarterly` in a tight loop. SEC EDGAR rate-limits by the
@@ -100,8 +100,9 @@ suite, gut a function and confirm the suite goes red before believing it.
 
 ## Known slow steps
 
-A first-run `etl_stock_data_<ticker>` pulls 25 years from yfinance and takes a
-minute or so per ticker. The same happens on any run where a dividend or split
+A first-run `etl_stock_data_<ticker>` pulls the ticker's entire history from
+yfinance -- back to 1962 for DIS, 1980 for AAPL and JPM -- and takes a minute
+or so per ticker. The same happens on any run where a dividend or split
 has gone ex since the last load — that is deliberate: it re-adjusts the whole
 series so the history does not step at the boundary.
 
