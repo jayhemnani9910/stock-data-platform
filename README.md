@@ -81,7 +81,7 @@ The landing page features a Bloomberg-style ticker tape and architecture overvie
 | `fact_stock_price_monthly` | Fact | Aggregated monthly averages and total volume |
 | `fact_company_fundamentals` | Fact | Market cap, PE ratios, dividends, beta |
 | `fact_earnings` | Fact | Quarterly EPS: estimate vs actual, surprise % |
-| `fact_sec_financials` | Fact | SEC filing line items (income, balance sheet, cash flow) |
+| `fact_sec_financials` | Fact | SEC filing line items, keyed on the full reporting period so quarterly and year-to-date figures stay distinct |
 | `fact_macro_data` | Fact | Fed funds rate, CPI, unemployment, GDP time series |
 
 Built on **TimescaleDB** for time-series optimized queries on PostgreSQL 14.
@@ -130,7 +130,7 @@ cp .env.example .env    # Fill in your FRED_API_KEY and EDGAR_IDENTITY
 docker compose up -d
 
 # Access Airflow UI
-open http://localhost:8081   # admin / admin
+open http://localhost:8081   # credentials from .env
 
 # Initialize dimensions (run these DAGs first)
 #   1. populate_dim_company
@@ -166,9 +166,10 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   └── populate_macro_data.py
 ├── SQL/                           # Schema and queries
 │   ├── schema.sql                 # Star schema DDL (TimescaleDB)
+│   ├── migrations/                # Re-runnable changes for a live volume
 │   └── aggregate_monthly.sql      # Monthly rollup query
 ├── tests/                         # Unit tests (pytest)
-│   └── unit/                      # 88 tests across 9 modules
+│   └── unit/                      # 155 tests across 9 modules
 ├── site/                          # GitHub Pages (landing page + dashboard)
 ├── docs/                          # Architecture diagrams (D2 format)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB

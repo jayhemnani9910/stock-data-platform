@@ -41,13 +41,20 @@ of replacing it, so both ports get published and the bind still fails.
 
     docker compose up -d
 
+`airflow` and `stockdw` are separate databases on the same server: Airflow's
+run history and users are in `airflow`, and `stockdw` holds only the nine
+star-schema tables. A volume created before that split has 42 Airflow tables
+sitting in `stockdw.public`; `CREATE DATABASE airflow` and restart, and Airflow
+rebuilds its own schema (past run history does not carry over).
+
 Then wait for Airflow, and check the warehouse:
 
     curl -s http://localhost:8081/health
     docker exec timescaledb psql -U data226 -d stockdw -c \
       "SELECT count(*), max(date) FROM fact_stock_price_daily;"
 
-Airflow UI is at http://localhost:8081 with admin/admin.
+Airflow UI is at http://localhost:8081, credentials from `AIRFLOW_ADMIN_USER`
+and `AIRFLOW_ADMIN_PASSWORD` in `.env`.
 
 On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 `populate_dim_date`, then any `etl_stock_data_<ticker>`.
@@ -56,8 +63,13 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 
     pytest tests/ -q
 
-88 unit tests, no database or network needed. This is what CI runs, along with
+155 unit tests, no database or network needed. This is what CI runs, along with
 `ruff check .` and `ruff format --check .`.
+
+They import the real production functions. They used to run against copies, and
+stayed green while `_stage_path_for_run`, `load_tickers`, `MARKET_OPEN` and the
+`dim_date` weekend rule were all replaced with nonsense. If you change the test
+suite, gut a function and confirm the suite goes red before believing it.
 
 ## Safe to run
 
@@ -65,14 +77,22 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 - `ruff check .`, `ruff format --check .`
 - `docker compose up -d`, `docker compose ps`, `docker compose logs`
 - `docker exec timescaledb psql ...` for any SELECT
-- `scripts/export_dashboard_data.py`, which only reads the warehouse and
-  rewrites `site/data/*.json`
+- `make export-dashboard`, which only reads the warehouse and rewrites
+  `site/data/*.json`. Those files are tracked, so commit the result — nothing
+  regenerates them in CI, and Pages serves whatever is committed.
+- `make migrate`, which applies `SQL/migrations/*.sql`. Every migration is
+  re-runnable; applying the set twice is a no-op.
 - Triggering any Airflow DAG. They all upsert, so a repeat run is idempotent.
 
 ## Do not run automatically
 
-- `docker compose down -v` and `make clean`. Both take the `-v` flag and destroy
-  the warehouse volume, which is six months of loaded data.
+- `docker compose down -v` and `make clean`. Both take the `-v` flag. The
+  database itself is the `./data/db` bind mount, which `-v` does not remove —
+  but do not rely on that.
+- `TRUNCATE fact_stock_price_daily` followed by the ETL DAGs. That is the only
+  way to clear a stale price-adjustment basis, and it refetches 25 years for
+  ten tickers. It is correct, it is slow, and it is not something to do
+  unattended.
 - Anything that writes to `.env`. It holds a live FRED API key.
 - `sec_financials_quarterly` in a tight loop. SEC EDGAR rate-limits by the
   `EDGAR_IDENTITY` string and will block it.
@@ -81,5 +101,9 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 ## Known slow steps
 
 A first-run `etl_stock_data_<ticker>` pulls 25 years from yfinance and takes a
-minute or so per ticker. `sec_financials_quarterly` walks EDGAR filings for ten
-companies and is the slowest DAG in the project.
+minute or so per ticker. The same happens on any run where a dividend or split
+has gone ex since the last load — that is deliberate: it re-adjusts the whole
+series so the history does not step at the boundary.
+
+`sec_financials_quarterly` walks EDGAR filings for ten companies and is the
+slowest DAG in the project.

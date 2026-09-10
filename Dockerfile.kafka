@@ -7,4 +7,8 @@ ARG SCRIPT
 COPY ${SCRIPT} .
 ENV SCRIPT=${SCRIPT}
 ENV PYTHONUNBUFFERED=1
-CMD python ${SCRIPT}
+# exec, so python replaces the shell and becomes PID 1. Without it PID 1 is
+# /bin/sh, which does not forward SIGTERM, so `docker stop` never reached the
+# consumer's shutdown handler -- the finally: block that flushes the buffered
+# batch and commits offsets -- and up to 50 ticks were lost on every clean stop.
+CMD exec python ${SCRIPT}

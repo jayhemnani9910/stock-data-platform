@@ -1,13 +1,7 @@
 """Tests for scripts/populate_macro_data.py — _series_to_rows()."""
 
-import os
-import sys
-
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
-
 from populate_macro_data import _series_to_rows
 
 

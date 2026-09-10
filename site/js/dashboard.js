@@ -19,7 +19,20 @@ Chart.defaults.font.size = 11;
 
 async function loadJSON(file) {
   const res = await fetch(`data/${file}`);
+  // Without this a 404 returns an HTML error page and res.json() throws a
+  // parse error that says nothing about the missing file.
+  if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
   return res.json();
+}
+
+// Mean is the wrong summary for these: two GAAP-actual-vs-adjusted-estimate
+// artifacts above 210% dragged the headline EPS surprise to +41.7%, and one
+// 320x PE moves the PE average by 30 points. Median reports the typical name.
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function formatMarketCap(val) {
@@ -86,12 +99,14 @@ async function renderFundamentalsTable() {
 
   // Metric cards
   const totalMcap = data.reduce((s, d) => s + (d.market_cap || 0), 0);
-  const pes = data.map(d => d.trailing_pe).filter(v => v && v < 200);
-  const avgPE = pes.length ? (pes.reduce((a, b) => a + b, 0) / pes.length) : 0;
+  // The old filter dropped anything over 200 -- silently excluding TSLA at 321
+  // from a card labelled "Avg Trailing PE" with no footnote.
+  const pes = data.map(d => d.trailing_pe).filter(v => typeof v === 'number' && v > 0);
+  const medPE = median(pes);
 
   const el = id => document.getElementById(id);
   el('totalMarketCap').textContent = formatMarketCap(totalMcap);
-  el('avgPE').textContent = avgPE.toFixed(1) + 'x';
+  el('avgPE').textContent = medPE === null ? '\u2014' : medPE.toFixed(1) + 'x';
 }
 
 // ── EARNINGS TABLE + CHART + METRIC ──
@@ -123,12 +138,18 @@ async function renderEarnings() {
     `;
   }).join('');
 
-  // Avg surprise metric
-  const surprises = sorted.map(d => d.surprise_pct).filter(v => v != null);
-  const avgSurprise = surprises.length ? (surprises.reduce((a, b) => a + b, 0) / surprises.length) : 0;
+  // Median, not mean: AMZN (+215%) and GOOG (+213%) report GAAP actuals against
+  // adjusted estimates, and those two artifacts alone pulled a mean over ten
+  // names to +41.7% -- a headline no individual ticker was anywhere near.
+  const surprises = sorted.map(d => d.surprise_pct).filter(v => typeof v === 'number');
+  const medSurprise = median(surprises);
   const el = document.getElementById('avgSurprise');
-  el.textContent = (avgSurprise > 0 ? '+' : '') + avgSurprise.toFixed(1) + '%';
-  el.style.color = avgSurprise > 0 ? GREEN : RED;
+  if (medSurprise === null) {
+    el.textContent = '\u2014';
+  } else {
+    el.textContent = (medSurprise > 0 ? '+' : '') + medSurprise.toFixed(1) + '%';
+    el.style.color = medSurprise > 0 ? GREEN : RED;
+  }
 
   // AAPL earnings bar chart
   const aapl = data.filter(d => d.ticker === 'AAPL').slice(0, 8).reverse();
@@ -213,11 +234,27 @@ async function renderMacro() {
   });
 }
 
+async function renderSnapshot() {
+  const el = document.getElementById('lastUpdated');
+  if (!el) return;
+  try {
+    const meta = await loadJSON('meta.json');
+    const through = meta.datasets?.['price_summary.json']?.data_through;
+    if (!through) throw new Error('no data_through');
+    const d = new Date(through + 'T00:00:00');
+    el.textContent = 'Prices through \u2014 ' + d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch {
+    // Better to say nothing than to invent a date.
+    el.textContent = 'Data snapshot \u2014 date unavailable';
+  }
+}
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
-  // Last updated timestamp
-  const el = document.getElementById('lastUpdated');
-  if (el) el.textContent = 'Data snapshot \u2014 ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  // Snapshot date from meta.json, not new Date(). The viewer's clock is not
+  // the data's date -- this card read "today" over prices that stopped days
+  // earlier, which is the one thing a staleness indicator must never do.
+  renderSnapshot();
 
   // allSettled, not all: one widget whose JSON is missing or malformed must
   // not reject the whole chain and leave every .fade-in element invisible.

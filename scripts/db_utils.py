@@ -122,11 +122,18 @@ UPSERT_EARNINGS_SQL = """
 
 UPSERT_SEC_FINANCIALS_SQL = """
     INSERT INTO fact_sec_financials
-        (company_key, period_end, statement_type, line_item, filing_date, filing_type, value)
+        (company_key, statement_type, line_item, period_start, period_end, period_type,
+         fiscal_year, fiscal_period, filing_date, filing_type,
+         source_filing_date, source_filing_type, value)
     VALUES %s
-    ON CONFLICT (company_key, period_end, statement_type, line_item) DO UPDATE
-    SET filing_date = EXCLUDED.filing_date,
+    ON CONFLICT (company_key, statement_type, line_item, period_start, period_end) DO UPDATE
+    SET period_type = EXCLUDED.period_type,
+        fiscal_year = EXCLUDED.fiscal_year,
+        fiscal_period = EXCLUDED.fiscal_period,
+        filing_date = EXCLUDED.filing_date,
         filing_type = EXCLUDED.filing_type,
+        source_filing_date = EXCLUDED.source_filing_date,
+        source_filing_type = EXCLUDED.source_filing_type,
         value = EXCLUDED.value
 """
 
@@ -135,6 +142,24 @@ UPSERT_MACRO_DATA_SQL = """
     VALUES %s
     ON CONFLICT (date, indicator_key) DO UPDATE
     SET value = EXCLUDED.value
+"""
+
+
+# Correcting metadata in place keeps company_key stable. A true SCD Type 2 version
+# bump would mint a new company_key, and since every loader resolves a ticker through
+# get_company_key (which filters is_current), the ticker's existing facts would stay
+# on the retired key while new rows landed on the new one, splitting its history.
+#
+# The conflict target is the partial unique index in SQL/schema.sql, not a plain
+# column, so the WHERE clause has to match it exactly.
+UPSERT_COMPANY_SQL = """
+    INSERT INTO dim_company (ticker, company_name, sector, industry, exchange)
+    VALUES %s
+    ON CONFLICT (ticker) WHERE is_current DO UPDATE
+    SET company_name = EXCLUDED.company_name,
+        sector = EXCLUDED.sector,
+        industry = EXCLUDED.industry,
+        exchange = EXCLUDED.exchange
 """
 
 

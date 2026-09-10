@@ -1,4 +1,7 @@
-target-version = "py312"
+# The Airflow image is python 3.11, and Dags/ and scripts/ run inside it.
+# Targeting py312 let pyupgrade rewrite them into syntax that image cannot
+# import, and CI lints on 3.12 so nothing would have caught it.
+target-version = "py311"
 line-length = 120
 
 [lint]

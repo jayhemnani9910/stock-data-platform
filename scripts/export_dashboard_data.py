@@ -3,7 +3,7 @@
 import json
 import math
 import os
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from db_utils import get_db_connection
 
@@ -32,7 +32,7 @@ def export_price_summary(conn):
             SELECT d.ticker, f.date, f.open, f.high, f.low, f.close, f.volume
             FROM fact_stock_price_daily f
             JOIN dim_company d ON f.company_key = d.company_key
-            WHERE f.date >= %s ORDER BY d.ticker, f.date
+            WHERE d.is_current AND f.date >= %s ORDER BY d.ticker, f.date
         """,
             (start,),
         )
@@ -50,7 +50,7 @@ def export_fundamentals(conn):
         # it still has perfectly good fundamentals from an earlier date.
         cur.execute("""
             SELECT DISTINCT ON (d.ticker)
-                   d.ticker, f.market_cap, f.trailing_pe, f.forward_pe,
+                   d.ticker, f.date, f.market_cap, f.trailing_pe, f.forward_pe,
                    f.price_to_book, f.dividend_yield, f.beta, f.week_52_high, f.week_52_low
             FROM fact_company_fundamentals f
             JOIN dim_company d ON f.company_key = d.company_key
@@ -58,10 +58,11 @@ def export_fundamentals(conn):
             ORDER BY d.ticker, f.date DESC
         """)
         rows = cur.fetchall()
-    return _serialize(
+    data = _serialize(
         rows,
         [
             "ticker",
+            "date",
             "market_cap",
             "trailing_pe",
             "forward_pe",
@@ -72,6 +73,9 @@ def export_fundamentals(conn):
             "week_52_low",
         ],
     )
+    for r in data:
+        r["date"] = str(r["date"])
+    return data
 
 
 def export_earnings(conn):
@@ -80,7 +84,13 @@ def export_earnings(conn):
             SELECT d.ticker, f.report_date, f.eps_estimate, f.eps_actual, f.surprise_pct
             FROM fact_earnings f
             JOIN dim_company d ON f.company_key = d.company_key
-            WHERE f.report_date >= (CURRENT_DATE - INTERVAL '2 years')
+            WHERE d.is_current
+              AND f.report_date >= (CURRENT_DATE - INTERVAL '2 years')
+              -- yfinance publishes scheduled reports with a NULL eps_actual.
+              -- The dashboard picks each ticker's latest report_date, so an
+              -- unreported future quarter would become its "Latest Quarter"
+              -- and render as blank EPS.
+              AND f.report_date <= CURRENT_DATE
             ORDER BY d.ticker, f.report_date DESC
         """)
         rows = cur.fetchall()
@@ -106,6 +116,34 @@ def export_macro(conn):
     return data
 
 
+# Which field carries each dataset's own timestamp, for the snapshot stamp.
+_DATE_FIELD = {
+    "price_summary.json": "date",
+    "fundamentals.json": "date",
+    "earnings.json": "report_date",
+    "macro.json": "date",
+}
+
+
+def build_meta(exports, generated_at=None):
+    """Describe when the export ran and how current each dataset is.
+
+    The dashboard used to stamp `new Date()` on itself, so it read "today" over
+    data that was days old. It can only tell the truth if the truth ships with
+    the data.
+    """
+    generated_at = generated_at or datetime.now(UTC)
+    datasets = {}
+    for filename, data in exports.items():
+        field = _DATE_FIELD.get(filename)
+        dates = [r[field] for r in data if field and r.get(field)] if data else []
+        datasets[filename] = {
+            "records": len(data),
+            "data_through": max(dates) if dates else None,
+        }
+    return {"generated_at": generated_at.isoformat(timespec="seconds"), "datasets": datasets}
+
+
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -117,11 +155,21 @@ def main():
             "macro.json": export_macro(conn),
         }
 
+    # An empty result means the query or the warehouse is broken, not that the
+    # data went away. Overwriting a good file with [] would publish a blank
+    # dashboard and destroy the only copy of what it replaced.
+    empty = [name for name, data in exports.items() if not data]
+    if empty:
+        raise SystemExit(f"Refusing to export: no rows returned for {', '.join(sorted(empty))}")
+
+    exports["meta.json"] = build_meta(exports)
+
     for filename, data in exports.items():
         path = os.path.join(OUTPUT_DIR, filename)
         with open(path, "w") as f:
             json.dump(data, f, indent=2, default=str)
-        print(f"Exported {filename}: {len(data)} records")
+        count = len(data) if isinstance(data, list) else len(data.get("datasets", {}))
+        print(f"Exported {filename}: {count} records")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,3 @@
-version: '3.8'
-
 x-db-env: &db-env
   DB_HOST: ${DB_HOST:-timescaledb}
   DB_NAME: ${DB_NAME:-stockdw}
@@ -9,7 +7,13 @@ x-db-env: &db-env
 x-airflow-env: &airflow-env
   <<: *db-env
   AIRFLOW__CORE__EXECUTOR: LocalExecutor
-  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER:-data226}:${DB_PASSWORD}@${DB_HOST:-timescaledb}:5432/${DB_NAME:-stockdw}
+  # Airflow's own bookkeeping lives in its own database. It used to share
+  # stockdw, which put 42 Airflow tables in the same schema as the nine
+  # warehouse tables: a pg_dump of the warehouse carried Airflow's users and
+  # run history with it, and `airflow db reset` pointed at the schema holding
+  # the facts. AIRFLOW_CONN_TIMESCALEDB_CONN still points at the warehouse --
+  # that is the connection the DAGs read and write through.
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${DB_USER:-data226}:${DB_PASSWORD}@${DB_HOST:-timescaledb}:5432/${AIRFLOW_DB_NAME:-airflow}
   AIRFLOW_CONN_TIMESCALEDB_CONN: postgresql://${DB_USER:-data226}:${DB_PASSWORD}@${DB_HOST:-timescaledb}:5432/${DB_NAME:-stockdw}
   AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:?Set AIRFLOW__WEBSERVER__SECRET_KEY in .env}
   AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:?Set AIRFLOW__CORE__FERNET_KEY in .env}
@@ -17,17 +21,26 @@ x-airflow-env: &airflow-env
   AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
   FRED_API_KEY: ${FRED_API_KEY:-}
   EDGAR_IDENTITY: ${EDGAR_IDENTITY:-StockDataPlatform user@example.com}
+  # .env documented TICKERS_FILE as the one knob driving both the populate
+  # scripts and the ETL DAG factory, but compose never forwarded it, so setting
+  # it had no effect on the containers.
+  TICKERS_FILE: ${TICKERS_FILE:-/opt/airflow/dags/tickers.txt}
+  AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER:-admin}
+  AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?Set AIRFLOW_ADMIN_PASSWORD in .env}
+  AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
 
 x-airflow-volumes: &airflow-volumes
   - ./Dags:/opt/airflow/dags
   - ./scripts:/opt/airflow/scripts
   - ./SQL:/opt/airflow/sql
-  - ./requirements.txt:/requirements.txt
 
 services:
   timescaledb:
-    image: timescale/timescaledb:latest-pg14
+    # Pinned: latest-pg14 moves the TimescaleDB minor version under an
+    # existing data directory on every pull.
+    image: timescale/timescaledb:2.19.3-pg14
     container_name: timescaledb
+    restart: unless-stopped
     ports:
       - "5434:5432"
     environment:
@@ -36,6 +49,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-stockdw}
     volumes:
       - ./data/db:/var/lib/postgresql/data
+      - ./SQL/00-databases.sql:/docker-entrypoint-initdb.d/00-databases.sql:ro
       - ./SQL/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-data226} -d ${POSTGRES_DB:-stockdw}"]
@@ -51,9 +65,14 @@ services:
     # Run as the host user so bind-mounted paths under ./Dags stay writable.
     # Airflow images expect an arbitrary uid with GID 0; /opt/airflow is group-writable.
     user: "${AIRFLOW_UID:-50000}:0"
-    restart: "no"
+    restart: unless-stopped
+    # The scheduler owns `airflow db migrate`. Both services used to run it,
+    # racing on the same alembic_version row; it survives on luck today and
+    # deadlocks the first time a version bump carries real migrations.
     depends_on:
       timescaledb:
+        condition: service_healthy
+      airflow-scheduler:
         condition: service_healthy
     environment:
       <<: *airflow-env
@@ -62,9 +81,18 @@ services:
       - "8081:8080"
     command: >
       bash -c "
-      airflow db migrate &&
-      (airflow users create --username admin --password admin --firstname Air --lastname Flow --role Admin --email admin@example.com || true) &&
+      (airflow users create
+        --username \"$${AIRFLOW_ADMIN_USER}\"
+        --password \"$${AIRFLOW_ADMIN_PASSWORD}\"
+        --firstname Air --lastname Flow --role Admin
+        --email \"$${AIRFLOW_ADMIN_EMAIL}\" || true) &&
       airflow webserver"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -76,7 +104,7 @@ services:
     # Run as the host user so bind-mounted paths under ./Dags stay writable.
     # Airflow images expect an arbitrary uid with GID 0; /opt/airflow is group-writable.
     user: "${AIRFLOW_UID:-50000}:0"
-    restart: "no"
+    restart: unless-stopped
     depends_on:
       timescaledb:
         condition: service_healthy
@@ -87,12 +115,19 @@ services:
       bash -c "
       airflow db migrate &&
       airflow scheduler"
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$$(hostname)\" || exit 1"]
+      interval: 15s
+      timeout: 15s
+      retries: 10
+      start_period: 90s
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: stock-data-platform-zookeeper
+    restart: unless-stopped
     ports:
       - "2181:2181"
     environment:
@@ -144,15 +179,22 @@ services:
       args:
         SCRIPT: live_from_kafka.py
     container_name: stock-data-platform-kafka-producer
+    # service_healthy, not the short-form list: kafka has a healthcheck, and a
+    # plain `- kafka` only waits for the container to start, not for the broker
+    # to accept connections. Both services logged NoBrokersAvailable through
+    # their retry loop on every boot, and with no restart policy an exhausted
+    # loop left streaming down until someone noticed.
     depends_on:
-      - kafka
-      - timescaledb
+      kafka:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
     environment:
       <<: *db-env
       KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-stock-data-platform-kafka:9092}
       KAFKA_TOPIC: ${KAFKA_TOPIC:-stock-data}
       STOCK_TICKERS: ${STOCK_TICKERS:-AAPL,AMZN,DIS,GOOG,JPM,META,MSFT,NFLX,NVDA,TSLA}
-    restart: "no"
+    restart: unless-stopped
 
   kafka-consumer:
     build:
@@ -161,11 +203,18 @@ services:
       args:
         SCRIPT: kafka_to_postgres.py
     container_name: stock-data-platform-kafka-consumer
+    # service_healthy, not the short-form list: kafka has a healthcheck, and a
+    # plain `- kafka` only waits for the container to start, not for the broker
+    # to accept connections. Both services logged NoBrokersAvailable through
+    # their retry loop on every boot, and with no restart policy an exhausted
+    # loop left streaming down until someone noticed.
     depends_on:
-      - kafka
-      - timescaledb
+      kafka:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
     environment:
       <<: *db-env
       KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-stock-data-platform-kafka:9092}
       KAFKA_TOPIC: ${KAFKA_TOPIC:-stock-data}
-    restart: "no"
+    restart: unless-stopped

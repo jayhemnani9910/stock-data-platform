@@ -1,22 +1,8 @@
 import os
 
-from db_utils import batch_insert, get_db_connection
+from db_utils import UPSERT_COMPANY_SQL, batch_insert, get_db_connection
 
 TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
-
-# Correcting metadata in place keeps company_key stable. A true SCD Type 2 version
-# bump would mint a new company_key, and since every loader resolves a ticker through
-# get_company_key (which filters is_current), the ticker's existing facts would stay
-# on the retired key while new rows landed on the new one, splitting its history.
-UPSERT_COMPANY_SQL = """
-    INSERT INTO dim_company (ticker, company_name, sector, industry, exchange)
-    VALUES %s
-    ON CONFLICT (ticker) WHERE is_current DO UPDATE
-    SET company_name = EXCLUDED.company_name,
-        sector = EXCLUDED.sector,
-        industry = EXCLUDED.industry,
-        exchange = EXCLUDED.exchange
-"""
 
 COMPANY_METADATA = {
     "AAPL": ("Apple Inc.", "Technology", "Consumer Electronics", "NASDAQ"),

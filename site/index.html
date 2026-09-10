@@ -34,7 +34,7 @@
   <div class="hero-grid"></div>
   <div class="container hero-content">
     <div class="hero-badge">
-      <span>&#9679;</span> Live Pipeline &bull; 10 Tickers &bull; 4 Data Sources
+      <span>&#9679;</span> 10 Tickers &bull; 3 Data Sources &bull; 6 Fact Tables
     </div>
     <h1>
       Your Own<br>
@@ -52,37 +52,42 @@
 </section>
 
 <!-- TICKER TAPE -->
-<div class="ticker-tape">
+<!-- A static snapshot, not a live feed: nothing on this page fetches
+     anything. These are the real closes and day-over-day moves for the
+     2026-09-09 session. Refresh with `make export-dashboard` and read
+     site/data/price_summary.json. dashboard.html is the live one. -->
+<div class="ticker-tape" aria-label="Closing prices, 2026-09-09">
   <div class="ticker-track">
-    <span class="ticker-item"><span class="symbol">AAPL</span> <span class="price">$319.97</span> <span class="down">-2.51%</span></span>
-    <span class="ticker-item"><span class="symbol">NVDA</span> <span class="price">$230.36</span> <span class="up">+0.84%</span></span>
-    <span class="ticker-item"><span class="symbol">MSFT</span> <span class="price">$499.70</span> <span class="down">-2.04%</span></span>
-    <span class="ticker-item"><span class="symbol">GOOG</span> <span class="price">$335.31</span> <span class="down">-1.05%</span></span>
-    <span class="ticker-item"><span class="symbol">AMZN</span> <span class="price">$258.51</span> <span class="down">-0.15%</span></span>
-    <span class="ticker-item"><span class="symbol">META</span> <span class="price">$616.77</span> <span class="up">+1.00%</span></span>
-    <span class="ticker-item"><span class="symbol">TSLA</span> <span class="price">$354.08</span> <span class="down">-5.92%</span></span>
-    <span class="ticker-item"><span class="symbol">JPM</span> <span class="price">$358.64</span> <span class="down">-0.94%</span></span>
-    <span class="ticker-item"><span class="symbol">NFLX</span> <span class="price">$78.25</span> <span class="down">-5.35%</span></span>
-    <span class="ticker-item"><span class="symbol">DIS</span> <span class="price">$105.31</span> <span class="down">-1.73%</span></span>
-    <span class="ticker-item"><span class="symbol">AAPL</span> <span class="price">$319.97</span> <span class="down">-2.51%</span></span>
-    <span class="ticker-item"><span class="symbol">NVDA</span> <span class="price">$230.36</span> <span class="up">+0.84%</span></span>
-    <span class="ticker-item"><span class="symbol">MSFT</span> <span class="price">$499.70</span> <span class="down">-2.04%</span></span>
-    <span class="ticker-item"><span class="symbol">GOOG</span> <span class="price">$335.31</span> <span class="down">-1.05%</span></span>
-    <span class="ticker-item"><span class="symbol">AMZN</span> <span class="price">$258.51</span> <span class="down">-0.15%</span></span>
-    <span class="ticker-item"><span class="symbol">META</span> <span class="price">$616.77</span> <span class="up">+1.00%</span></span>
-    <span class="ticker-item"><span class="symbol">TSLA</span> <span class="price">$354.08</span> <span class="down">-5.92%</span></span>
-    <span class="ticker-item"><span class="symbol">JPM</span> <span class="price">$358.64</span> <span class="down">-0.94%</span></span>
-    <span class="ticker-item"><span class="symbol">NFLX</span> <span class="price">$78.25</span> <span class="down">-5.35%</span></span>
-    <span class="ticker-item"><span class="symbol">DIS</span> <span class="price">$105.31</span> <span class="down">-1.73%</span></span>
+    <span class="ticker-item"><span class="symbol">AAPL</span> <span class="price">$315.34</span> <span class="down">-0.28%</span></span>
+    <span class="ticker-item"><span class="symbol">NVDA</span> <span class="price">$223.67</span> <span class="down">-0.91%</span></span>
+    <span class="ticker-item"><span class="symbol">MSFT</span> <span class="price">$491.65</span> <span class="down">-0.47%</span></span>
+    <span class="ticker-item"><span class="symbol">GOOG</span> <span class="price">$328.38</span> <span class="down">-2.09%</span></span>
+    <span class="ticker-item"><span class="symbol">AMZN</span> <span class="price">$252.40</span> <span class="down">-1.78%</span></span>
+    <span class="ticker-item"><span class="symbol">META</span> <span class="price">$653.69</span> <span class="up">+6.55%</span></span>
+    <span class="ticker-item"><span class="symbol">TSLA</span> <span class="price">$367.81</span> <span class="down">-0.10%</span></span>
+    <span class="ticker-item"><span class="symbol">JPM</span> <span class="price">$354.71</span> <span class="up">+0.34%</span></span>
+    <span class="ticker-item"><span class="symbol">NFLX</span> <span class="price">$76.03</span> <span class="down">-0.96%</span></span>
+    <span class="ticker-item"><span class="symbol">DIS</span> <span class="price">$104.18</span> <span class="down">-0.84%</span></span>
+    <span class="ticker-item"><span class="symbol">AAPL</span> <span class="price">$315.34</span> <span class="down">-0.28%</span></span>
+    <span class="ticker-item"><span class="symbol">NVDA</span> <span class="price">$223.67</span> <span class="down">-0.91%</span></span>
+    <span class="ticker-item"><span class="symbol">MSFT</span> <span class="price">$491.65</span> <span class="down">-0.47%</span></span>
+    <span class="ticker-item"><span class="symbol">GOOG</span> <span class="price">$328.38</span> <span class="down">-2.09%</span></span>
+    <span class="ticker-item"><span class="symbol">AMZN</span> <span class="price">$252.40</span> <span class="down">-1.78%</span></span>
+    <span class="ticker-item"><span class="symbol">META</span> <span class="price">$653.69</span> <span class="up">+6.55%</span></span>
+    <span class="ticker-item"><span class="symbol">TSLA</span> <span class="price">$367.81</span> <span class="down">-0.10%</span></span>
+    <span class="ticker-item"><span class="symbol">JPM</span> <span class="price">$354.71</span> <span class="up">+0.34%</span></span>
+    <span class="ticker-item"><span class="symbol">NFLX</span> <span class="price">$76.03</span> <span class="down">-0.96%</span></span>
+    <span class="ticker-item"><span class="symbol">DIS</span> <span class="price">$104.18</span> <span class="down">-0.84%</span></span>
   </div>
 </div>
+<p class="ticker-asof">Closing prices &middot; 2026-09-09</p>
 
 <!-- IMPACT STATS -->
 <section class="section" id="stats">
   <div class="container">
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-value">$25T+</div>
+        <div class="stat-value">$24.9T</div>
         <div class="stat-label">Market Cap Tracked</div>
       </div>
       <div class="stat-card">
@@ -90,7 +95,7 @@
         <div class="stat-label">Historical Depth</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">68K+</div>
+        <div class="stat-value">69K+</div>
         <div class="stat-label">Data Points</div>
       </div>
       <div class="stat-card">
@@ -151,7 +156,7 @@
   <div class="container">
     <span class="section-label">// What You Can Do</span>
     <h2 class="section-title">Use Cases</h2>
-    <p class="section-desc">Every question below can be answered with a single SQL query against the warehouse.</p>
+    <p class="section-desc">Every figure below is a single SQL query against the warehouse, measured 2026-09-10.</p>
 
     <div class="use-case-grid">
 
@@ -160,28 +165,28 @@
         <div class="use-case-question">"How has NVDA performed vs AAPL in 2026?"</div>
         <div class="use-case-result">
 <span class="header-row">ticker    jan       feb       mar</span>
-<span class="data-row"><span>NVDA</span>     <span style="color:var(--green)">+8.2%</span>    <span style="color:var(--red)">-3.1%</span>    <span style="color:var(--green)">+5.7%</span></span>
-<span class="data-row"><span>AAPL</span>     <span style="color:var(--green)">+2.1%</span>    <span style="color:var(--red)">-1.8%</span>    <span style="color:var(--green)">+0.9%</span></span></div>
+<span class="data-row"><span>NVDA</span>      <span style="color:var(--green)">+1.2%</span>     <span style="color:var(--red)">-4.5%</span>     <span style="color:var(--red)">-4.4%</span></span>
+<span class="data-row"><span>AAPL</span>      <span style="color:var(--red)">-4.3%</span>     <span style="color:var(--red)">-2.1%</span>     <span style="color:var(--red)">-4.1%</span></span></div>
       </div>
 
       <div class="use-case-card fade-in">
         <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin-bottom: var(--space-md);">Earnings Analysis</h3>
-        <div class="use-case-question">"Who beat earnings estimates the most?"</div>
+        <div class="use-case-question">"Who beats earnings estimates, and who misses?"</div>
         <div class="use-case-result">
 <span class="header-row">ticker   avg surprise   beat rate</span>
-<span class="data-row"><span>NFLX</span>    <span style="color:var(--green)">+12.4%</span>        <span style="color:var(--green)">100%</span></span>
-<span class="data-row"><span>AAPL</span>    <span style="color:var(--green)">+4.8%</span>         <span style="color:var(--green)">100%</span></span>
-<span class="data-row"><span>MSFT</span>    <span style="color:var(--green)">+3.2%</span>         <span style="color:var(--green)">100%</span></span></div>
+<span class="data-row"><span>AMZN</span>     <span style="color:var(--green)">+50.3%</span>         <span style="color:var(--green)">8/8</span></span>
+<span class="data-row"><span>GOOG</span>     <span style="color:var(--green)">+50.2%</span>         <span style="color:var(--green)">8/8</span></span>
+<span class="data-row"><span>TSLA</span>     <span style="color:var(--red)">-5.3%</span>          <span style="color:var(--red)">3/8</span></span></div>
       </div>
 
       <div class="use-case-card fade-in">
         <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; margin-bottom: var(--space-md);">Macro Correlation</h3>
-        <div class="use-case-question">"Tech stocks vs. Fed rate since 2023"</div>
+        <div class="use-case-question">"Tech stocks vs. Fed rate, by quarter"</div>
         <div class="use-case-result">
 <span class="header-row">quarter   fed rate   tech return</span>
-<span class="data-row"><span>2025-Q4</span>   <span style="color:var(--cyan)">3.64%</span>     <span style="color:var(--green)">+6.8%</span></span>
-<span class="data-row"><span>2025-Q3</span>   <span style="color:var(--cyan)">4.25%</span>     <span style="color:var(--green)">+3.2%</span></span>
-<span class="data-row"><span>2025-Q2</span>   <span style="color:var(--cyan)">4.50%</span>     <span style="color:var(--red)">-1.4%</span></span></div>
+<span class="data-row"><span>2026-Q3</span>   <span style="color:var(--cyan)">3.63%</span>      <span style="color:var(--green)">+16.2%</span></span>
+<span class="data-row"><span>2026-Q2</span>   <span style="color:var(--cyan)">3.63%</span>      <span style="color:var(--green)">+9.5%</span></span>
+<span class="data-row"><span>2026-Q1</span>   <span style="color:var(--cyan)">3.64%</span>      <span style="color:var(--red)">-11.8%</span></span></div>
       </div>
 
       <div class="use-case-card fade-in">

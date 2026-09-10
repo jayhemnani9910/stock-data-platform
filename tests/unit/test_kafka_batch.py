@@ -10,12 +10,10 @@ Observed live: "Discarding 20 messages", exactly two cycles of ten tickers.
 
 import importlib.util
 import os
-import sys
 
 import pytest
 
 _ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-sys.path.insert(0, os.path.join(_ROOT, "scripts"))
 
 pytest.importorskip("kafka", reason="kafka-python not installed")
 
@@ -222,9 +220,92 @@ class TestShutdownDrain:
         monkeypatch.setattr(_kp, "_connect_kafka", lambda: consumer)
         monkeypatch.setattr(_kp, "connect_db", lambda *a, **k: _RecordingConn())
 
-        with pytest.raises(KeyboardInterrupt):
-            _kp.main()
+        # main() returns rather than re-raising: an interrupt is a clean stop for
+        # a daemon, and the container should exit 0 once the batch is drained.
+        _kp.main()
 
         assert "rows" in seen, "the shutdown batch never reached the database"
         assert len(seen["rows"]) == 10, "20 buffered rows must collapse to 10 on shutdown"
+        assert consumer.commits == 1, "a drained batch must have its offsets committed"
         assert consumer.closed is True
+
+
+class TestSigtermDrain:
+    """`docker stop` sends SIGTERM. Python's default action for it terminates
+    without unwinding, so the finally: block that flushes the buffered batch
+    and commits offsets never ran -- up to BATCH_SIZE ticks lost on every clean
+    stop. Making python PID 1 (Dockerfile.kafka) was only half the fix."""
+
+    def test_handler_raises_so_finally_runs(self):
+        import signal
+
+        _kp._install_shutdown_handler()
+        try:
+            handler = signal.getsignal(signal.SIGTERM)
+            assert callable(handler), "SIGTERM must not be left at its default"
+            ran = []
+            try:
+                try:
+                    handler(signal.SIGTERM, None)
+                except (_kp._Shutdown, KeyboardInterrupt):
+                    pass
+                finally:
+                    ran.append(True)
+            finally:
+                pass
+            assert ran == [True]
+        finally:
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+    def test_shutdown_is_not_swallowed_as_a_generic_error(self):
+        """It must be its own type, so a real bug in the poll loop is not
+        mistaken for a clean shutdown."""
+        assert issubclass(_kp._Shutdown, Exception)
+        assert not issubclass(_kp._Shutdown, KeyboardInterrupt)
+
+    def test_sigterm_drains_the_buffer_end_to_end(self, monkeypatch):
+        """Drive the real main() loop and interrupt it the way docker does."""
+        flushed = []
+        monkeypatch.setattr(_kp, "connect_db", lambda *a, **k: _RecordingConn())
+        monkeypatch.setattr(_kp, "upsert_streaming_prices", lambda conn, rows: flushed.extend(rows))
+
+        class _Consumer:
+            def __init__(self):
+                self.commits = 0
+                self.closed = False
+                self._sent = False
+
+            def poll(self, timeout_ms=None):
+                if self._sent:
+                    # Second poll: behave exactly as SIGTERM does now.
+                    raise _kp._Shutdown("signal 15")
+                self._sent = True
+                return {
+                    "tp": [
+                        _FakeMessage(
+                            {
+                                "date": DATE,
+                                "company_key": 1,
+                                "open": 1.0,
+                                "high": 2.0,
+                                "low": 0.5,
+                                "close": 1.5,
+                                "volume": 10,
+                            }
+                        )
+                    ]
+                }
+
+            def commit(self):
+                self.commits += 1
+
+            def close(self):
+                self.closed = True
+
+        consumer = _Consumer()
+        monkeypatch.setattr(_kp, "_connect_kafka", lambda: consumer)
+        _kp.main()
+
+        assert len(flushed) == 1, "the buffered tick must reach the database"
+        assert consumer.commits == 1, "and its offset must be committed"
+        assert consumer.closed

@@ -1,5 +1,6 @@
 import os
 import re
+from datetime import date
 
 from db_utils import (
     UPSERT_SEC_FINANCIALS_SQL,
@@ -17,11 +18,58 @@ STATEMENT_TYPES = {
     "CashFlowStatement": "cash_flow",
 }
 
+_DURATION_RE = re.compile(r"^duration_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})$")
+_INSTANT_RE = re.compile(r"^instant_(\d{4}-\d{2}-\d{2})$")
 
-def _parse_period_end(period_key):
-    """Extract end date from period key like 'duration_2024-09-29_2025-09-27' or 'instant_2025-09-27'."""
-    match = re.search(r"(\d{4}-\d{2}-\d{2})$", period_key)
-    return match.group(1) if match else None
+INSTANT = "instant"
+
+
+def _parse_period(period_key):
+    """Split an XBRL period key into (start, end, period_type).
+
+    Keys look like 'duration_2026-03-29_2026-06-27' or 'instant_2025-09-27'.
+    Both dates matter: a 10-Q reports the same line item over the quarter and
+    over the year to date, and those two windows share an end date. Keeping
+    only the end -- which this function used to do -- collapsed them onto one
+    row, and the caller's dedup then kept whichever came last. Apple's Q3
+    FY2026 quarter (109,417M of Net sales) was discarded in favour of the
+    nine-month figure (364,357M), which was then stored as if it were the
+    quarter.
+
+    Instant facts (the balance sheet) have no duration; start equals end so
+    the column can stay NOT NULL and join like any other.
+
+    Returns None for a key in neither shape.
+    """
+    m = _DURATION_RE.match(period_key)
+    if m:
+        return date.fromisoformat(m.group(1)), date.fromisoformat(m.group(2)), None
+
+    m = _INSTANT_RE.match(period_key)
+    if m:
+        instant = date.fromisoformat(m.group(1))
+        return instant, instant, INSTANT
+
+    return None
+
+
+def _period_index(xbrl):
+    """Map each period key to the filing's own description of that window.
+
+    reporting_periods carries period_type ('Quarterly', 'Nine Months',
+    'Annual'), fiscal_year and, when the filing declares one, fiscal_period
+    ('Q3', 'FY'). Reading it here beats inferring the window from a day count,
+    which gets 52/53-week fiscal calendars wrong.
+    """
+    index = {}
+    try:
+        for period in xbrl.reporting_periods:
+            key = period.get("key")
+            if key:
+                index[key] = period
+    except Exception as e:  # a filing with no usable period metadata
+        print(f"  Could not read reporting periods: {e}")
+    return index
 
 
 def _extract_statement(xbrl, stmt_type_key, stmt_label, company_key, filing_date, filing_type):
@@ -30,6 +78,18 @@ def _extract_statement(xbrl, stmt_type_key, stmt_label, company_key, filing_date
         s_info = xbrl.get_statement_by_type(stmt_type_key)
         if not s_info or not s_info.get("role"):
             return rows
+        periods = _period_index(xbrl)
+        # The period this filing is actually reporting on. Every other column in
+        # it is a comparative carried over from an earlier filing, so stamping
+        # this filing's date on all of them dated Apple's FY2023 income to
+        # 2025-10-31. Comparatives get NULL filing_date/filing_type instead.
+        period_of_report = None
+        try:
+            if xbrl.period_of_report:
+                period_of_report = date.fromisoformat(str(xbrl.period_of_report)[:10])
+        except (ValueError, TypeError):
+            pass
+
         stmt_list = xbrl.get_statement(s_info["role"])
         for item in stmt_list:
             label = item.get("label", "")
@@ -37,17 +97,33 @@ def _extract_statement(xbrl, stmt_type_key, stmt_label, company_key, filing_date
             if not values or label.endswith("[Abstract]") or label.endswith("[Table]") or label.endswith("[Axis]"):
                 continue
             for period_key, value in values.items():
-                period_end = _parse_period_end(period_key)
-                if period_end is None or value is None:
+                parsed = _parse_period(period_key)
+                if parsed is None or value is None:
                     continue
+                period_start, period_end, forced_type = parsed
+                meta = periods.get(period_key, {})
+                period_type = forced_type or meta.get("period_type") or "duration"
+                # reporting_periods reports the fiscal year and period of the
+                # *document*, not of the column: inside Apple's FY2025 10-K the
+                # comparative FY2024 and FY2023 columns both come back tagged
+                # 2025. They are only true for the period the filing is
+                # actually reporting on, so like filing_date they are NULL on
+                # every comparative. period_end carries the unambiguous answer.
+                own_period = period_of_report is not None and period_end == period_of_report
                 try:
                     rows.append(
                         (
                             company_key,
-                            period_end,
                             stmt_label,
                             label,
-                            str(filing_date),
+                            period_start,
+                            period_end,
+                            period_type,
+                            meta.get("fiscal_year") if own_period else None,
+                            meta.get("fiscal_period") if own_period else None,
+                            filing_date if own_period else None,
+                            filing_type if own_period else None,
+                            filing_date,
                             filing_type,
                             float(value),
                         )
@@ -80,7 +156,7 @@ def populate_sec_financials():
                     filing = company.get_filings(form=filing_type, amendments=False).latest(1)
                     if filing is None:
                         continue
-                    filing_date = str(filing.filing_date)
+                    filing_date = filing.filing_date
                     xbrl = filing.xbrl()
                     if xbrl is None:
                         continue
@@ -100,12 +176,23 @@ def populate_sec_financials():
                 print(f"Error processing {ticker}: {e}")
 
         if all_rows:
-            # Deduplicate: keep last value per (company_key, period_end, statement_type, line_item)
-            seen = {}
-            for row in all_rows:
-                key = (row[0], row[1], row[2], row[3])
-                seen[key] = row
-            all_rows = list(seen.values())
+            all_rows = _dedupe(all_rows)
             batch_insert(conn, UPSERT_SEC_FINANCIALS_SQL, all_rows)
 
     print(f"SEC financials updated: {len(all_rows)} line items across {len(tickers)} tickers")
+
+
+def _dedupe(rows):
+    """Collapse rows that would collide on the primary key.
+
+    execute_values sends the batch as one INSERT, and Postgres rejects a
+    statement whose rows hit the conflict target twice. The key must match the
+    table's: dropping period_start from it is what let a quarter and a
+    year-to-date figure overwrite each other. The 10-K is read before the 10-Q,
+    so on a genuine tie the more recent filing wins.
+    """
+    seen = {}
+    for row in rows:
+        # (company_key, statement_type, line_item, period_start, period_end)
+        seen[(row[0], row[1], row[2], row[3], row[4])] = row
+    return list(seen.values())

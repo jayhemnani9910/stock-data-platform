@@ -85,12 +85,43 @@ def _get_last_loaded_date(ticker):
             return row[0] if row and row[0] else None
 
 
+def _has_corporate_action_since(ticker, since):
+    """True if a dividend or split has gone ex for this ticker since `since`.
+
+    yf.download returns split- and dividend-adjusted prices, adjusted as of the
+    moment of the call. An incremental load only refetches the last two days,
+    so everything older keeps the factors it was first loaded with. Each
+    corporate action then leaves a step in the stored series that is not a
+    market move: AAPL's closes measured 1.001785x too high for every row before
+    2026-03-12 and exactly right after it, a 0.18% discontinuity that widens
+    with every dividend and would be a multiple after a split.
+
+    Detecting the action and refetching the full history restores one
+    consistent set of factors across the series.
+
+    A failure here must not fail the DAG -- fall back to the incremental path
+    and say so, because the alternative is refetching 25 years on every run.
+    """
+    try:
+        actions = yf.Ticker(ticker).actions
+        if actions is None or actions.empty:
+            return False
+        action_dates = pd.to_datetime(actions.index).tz_localize(None).date
+        return any(d > since for d in action_dates)
+    except Exception as e:
+        print(f"Could not check corporate actions for {ticker}: {e}. Staying incremental.")
+        return False
+
+
 def extract_data(ticker, ti, ts_nodash):
     try:
         _prune_stale_stage_files()
         end_date = datetime.today()
         last_date = _get_last_loaded_date(ticker)
-        if last_date:
+        if last_date and _has_corporate_action_since(ticker, last_date):
+            start_date = end_date - timedelta(days=365 * 25)
+            print(f"Corporate action since {last_date} for {ticker}: refetching full history to re-adjust")
+        elif last_date:
             start_date = last_date - timedelta(days=1)
             print(f"Incremental extract for {ticker} from {start_date}")
         else:

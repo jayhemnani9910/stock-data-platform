@@ -1,0 +1,22 @@
+# The build context was the whole repo: .git, the caches, the exported site,
+# and ./data/db -- which is owned by the container's postgres uid and is not
+# readable by the invoking user, so `tar -cf /dev/null .` over the context
+# fails outright.
+.git
+.github
+data/
+site/
+docs/
+Dags/stock_csvs/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+.remember/
+.claude/
+.env
+*.md
+architecture.png
