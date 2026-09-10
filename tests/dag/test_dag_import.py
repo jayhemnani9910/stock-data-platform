@@ -56,3 +56,8 @@ def test_every_task_has_a_callable_or_sql(dagbag):
                 or getattr(task, "trigger_dag_id", None) is not None
             )
             assert has_work, f"{dag_id}.{task.task_id} does nothing"
+
+
+def test_intraday_dag_is_registered(dagbag):
+    """Intraday bars live beside the daily series, loaded by their own DAG."""
+    assert "intraday_prices_daily" in dagbag.dags

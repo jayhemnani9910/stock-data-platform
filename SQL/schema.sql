@@ -117,6 +117,28 @@ CREATE TABLE IF NOT EXISTS fact_macro_data (
     PRIMARY KEY (date, indicator_key)
 );
 
+-- Intraday bars, beside the daily series rather than inside it.
+-- bar_interval is in the key because Yahoo serves several grains with very
+-- different reach (1h back ~730 trading days, 1m about a week), and a table
+-- that mixed them without saying which was which would repeat the
+-- fact_sec_financials mistake. trade_date is the US Eastern session date, so
+-- this joins dim_date like every other fact.
+CREATE TABLE IF NOT EXISTS fact_stock_price_intraday (
+    ts TIMESTAMPTZ NOT NULL,
+    company_key INT NOT NULL REFERENCES dim_company(company_key),
+    bar_interval TEXT NOT NULL,
+    trade_date DATE NOT NULL REFERENCES dim_date(date),
+    open DOUBLE PRECISION NOT NULL,
+    high DOUBLE PRECISION NOT NULL,
+    low DOUBLE PRECISION NOT NULL,
+    close DOUBLE PRECISION NOT NULL,
+    volume BIGINT NOT NULL,
+    PRIMARY KEY (ts, company_key, bar_interval)
+);
+
+CREATE INDEX IF NOT EXISTS fact_stock_price_intraday_company_idx
+    ON fact_stock_price_intraday (company_key, bar_interval, ts DESC);
+
 -- Time-series optimisation. Both tables are keyed on date and grow forever, so
 -- they become hypertables and get chunking and partition pruning. Every other
 -- fact table is small and bounded, so plain tables are the right shape for them.
@@ -126,6 +148,9 @@ SELECT create_hypertable('fact_stock_price_daily', 'date',
                          migrate_data => TRUE, if_not_exists => TRUE);
 SELECT create_hypertable('fact_macro_data', 'date',
                          chunk_time_interval => INTERVAL '5 years',
+                         migrate_data => TRUE, if_not_exists => TRUE);
+SELECT create_hypertable('fact_stock_price_intraday', 'ts',
+                         chunk_time_interval => INTERVAL '1 month',
                          migrate_data => TRUE, if_not_exists => TRUE);
 
 -- Every fact keyed on a calendar date references the date dimension. Without

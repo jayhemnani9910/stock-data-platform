@@ -92,6 +92,18 @@ def upsert_streaming_prices(conn, rows, page_size=500):
     batch_insert(conn, UPSERT_STREAMING_PRICE_SQL, rows, page_size=page_size)
 
 
+UPSERT_STOCK_PRICE_INTRADAY_SQL = """
+    INSERT INTO fact_stock_price_intraday
+        (ts, company_key, bar_interval, trade_date, open, high, low, close, volume)
+    VALUES %s
+    ON CONFLICT (ts, company_key, bar_interval) DO UPDATE
+    SET trade_date = EXCLUDED.trade_date,
+        open = EXCLUDED.open,
+        high = EXCLUDED.high,
+        low = EXCLUDED.low,
+        close = EXCLUDED.close,
+        volume = EXCLUDED.volume
+"""
 UPSERT_FUNDAMENTALS_SQL = """
     INSERT INTO fact_company_fundamentals
         (date, company_key, market_cap, trailing_pe, forward_pe, price_to_book,
