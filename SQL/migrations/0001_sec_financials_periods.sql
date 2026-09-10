@@ -15,9 +15,25 @@
 -- are now NULL unless the period is the filing's own reporting period;
 -- source_filing_* always records where the row was actually read from.
 
-DROP TABLE IF EXISTS fact_sec_financials;
+-- Idempotent, and deliberately not a bare DROP: `make migrate` reapplies every
+-- file, and an unguarded DROP would wipe the table on each run. This fires only
+-- while the old shape is still in place -- once period_start exists, it is a
+-- no-op.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables
+               WHERE table_schema = 'public' AND table_name = 'fact_sec_financials')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_schema = 'public'
+                         AND table_name = 'fact_sec_financials'
+                         AND column_name = 'period_start')
+    THEN
+        DROP TABLE fact_sec_financials;
+        RAISE NOTICE 'dropped fact_sec_financials: old period_end-only key, rows are unrecoverable';
+    END IF;
+END $$;
 
-CREATE TABLE fact_sec_financials (
+CREATE TABLE IF NOT EXISTS fact_sec_financials (
     company_key INT NOT NULL REFERENCES dim_company(company_key),
     statement_type TEXT NOT NULL,
     line_item TEXT NOT NULL,

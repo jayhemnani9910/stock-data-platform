@@ -103,6 +103,12 @@ def _extract_statement(xbrl, stmt_type_key, stmt_label, company_key, filing_date
                 period_start, period_end, forced_type = parsed
                 meta = periods.get(period_key, {})
                 period_type = forced_type or meta.get("period_type") or "duration"
+                # reporting_periods reports the fiscal year and period of the
+                # *document*, not of the column: inside Apple's FY2025 10-K the
+                # comparative FY2024 and FY2023 columns both come back tagged
+                # 2025. They are only true for the period the filing is
+                # actually reporting on, so like filing_date they are NULL on
+                # every comparative. period_end carries the unambiguous answer.
                 own_period = period_of_report is not None and period_end == period_of_report
                 try:
                     rows.append(
@@ -113,8 +119,8 @@ def _extract_statement(xbrl, stmt_type_key, stmt_label, company_key, filing_date
                             period_start,
                             period_end,
                             period_type,
-                            meta.get("fiscal_year"),
-                            meta.get("fiscal_period"),
+                            meta.get("fiscal_year") if own_period else None,
+                            meta.get("fiscal_period") if own_period else None,
                             filing_date if own_period else None,
                             filing_type if own_period else None,
                             filing_date,

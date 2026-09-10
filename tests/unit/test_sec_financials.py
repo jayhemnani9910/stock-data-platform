@@ -107,3 +107,88 @@ class TestDedupe:
 
     def test_empty_input(self):
         assert _dedupe([]) == []
+
+
+class _Item(dict):
+    pass
+
+
+class _FakeXbrl:
+    """Just enough of an edgartools XBRL to drive _extract_statement."""
+
+    def __init__(self, values, period_of_report, periods):
+        self._values = values
+        self.period_of_report = period_of_report
+        self.reporting_periods = periods
+
+    def get_statement_by_type(self, _):
+        return {"role": "r"}
+
+    def get_statement(self, _):
+        return [{"label": "Net sales", "values": self._values}]
+
+
+AAPL_PERIODS = [
+    {"key": "duration_2026-03-29_2026-06-27", "period_type": "Quarterly", "fiscal_year": 2026, "fiscal_period": "Q3"},
+    {"key": "duration_2025-03-30_2025-06-28", "period_type": "Quarterly", "fiscal_year": 2026, "fiscal_period": "Q3"},
+    {"key": "duration_2025-09-28_2026-06-27", "period_type": "Nine Months", "fiscal_year": 2026},
+]
+
+
+def _extract():
+    from populate_sec_financials import _extract_statement
+
+    xbrl = _FakeXbrl(
+        {
+            "duration_2026-03-29_2026-06-27": 109_417_000_000,
+            "duration_2025-03-30_2025-06-28": 94_036_000_000,
+            "duration_2025-09-28_2026-06-27": 364_357_000_000,
+        },
+        "2026-06-27",
+        AAPL_PERIODS,
+    )
+    rows = _extract_statement(xbrl, "IncomeStatement", "income", 1, date(2026, 7, 31), "10-Q")
+    return {(r[3], r[4]): r for r in rows}
+
+
+class TestExtractStatement:
+    """Apple's Q3 FY2026 10-Q, reduced to its Net sales row."""
+
+    def test_every_period_column_survives(self):
+        assert len(_extract()) == 3
+
+    def test_the_quarter_is_not_replaced_by_the_year_to_date(self):
+        rows = _extract()
+        assert rows[(date(2026, 3, 29), date(2026, 6, 27))][-1] == 109_417_000_000
+        assert rows[(date(2025, 9, 28), date(2026, 6, 27))][-1] == 364_357_000_000
+
+    def test_period_type_distinguishes_them(self):
+        rows = _extract()
+        assert rows[(date(2026, 3, 29), date(2026, 6, 27))][5] == "Quarterly"
+        assert rows[(date(2025, 9, 28), date(2026, 6, 27))][5] == "Nine Months"
+
+    def test_the_filings_own_period_is_dated(self):
+        row = _extract()[(date(2026, 3, 29), date(2026, 6, 27))]
+        assert row[8] == date(2026, 7, 31)  # filing_date
+        assert row[9] == "10-Q"  # filing_type
+
+    def test_a_comparative_period_is_not_dated(self):
+        """Stamping the filing on every column dated Apple's FY2023 income to
+        2025-10-31, 762 days after it was really filed."""
+        row = _extract()[(date(2025, 3, 30), date(2025, 6, 28))]
+        assert row[8] is None and row[9] is None
+
+    def test_a_comparative_keeps_its_source_filing(self):
+        row = _extract()[(date(2025, 3, 30), date(2025, 6, 28))]
+        assert row[10] == date(2026, 7, 31)  # source_filing_date
+        assert row[11] == "10-Q"
+
+    def test_fiscal_year_is_not_inherited_by_comparatives(self):
+        """reporting_periods reports the document's fiscal year, not the
+        column's — inside the FY2025 10-K the FY2024 column comes back as 2025."""
+        row = _extract()[(date(2025, 3, 30), date(2025, 6, 28))]
+        assert row[6] is None and row[7] is None
+
+    def test_the_filings_own_period_keeps_its_fiscal_labels(self):
+        row = _extract()[(date(2026, 3, 29), date(2026, 6, 27))]
+        assert row[6] == 2026 and row[7] == "Q3"

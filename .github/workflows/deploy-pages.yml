@@ -13,7 +13,10 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # false: cancelling a Pages deployment mid-flight can leave the site
+  # between versions. Two quick pushes to site/ would abort the first deploy
+  # after configure-pages but before deploy-pages.
+  cancel-in-progress: false
 
 jobs:
   deploy:
