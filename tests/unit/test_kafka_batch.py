@@ -257,11 +257,49 @@ class TestSigtermDrain:
         finally:
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
-    def test_shutdown_is_not_swallowed_as_a_generic_error(self):
-        """It must be its own type, so a real bug in the poll loop is not
-        mistaken for a clean shutdown."""
-        assert issubclass(_kp._Shutdown, Exception)
+    def test_shutdown_does_not_subclass_exception(self):
+        """BaseException, for the same reason KeyboardInterrupt is.
+
+        _flush_batch catches broad `except Exception` so it can survive a
+        dropped connection. While _Shutdown subclassed Exception, a SIGTERM
+        landing inside execute_values was caught there, logged as "Batch insert
+        failed", retried after a reconnect and lost -- the loop carried on and
+        docker SIGKILLed the container when the grace period ran out.
+        """
+        assert not issubclass(_kp._Shutdown, Exception)
+        assert issubclass(_kp._Shutdown, BaseException)
         assert not issubclass(_kp._Shutdown, KeyboardInterrupt)
+
+    def test_a_signal_during_a_flush_is_not_swallowed(self, monkeypatch):
+        """The regression, end to end through the real _flush_batch."""
+        calls = {"n": 0}
+
+        def upsert_interrupted_by_sigterm(conn, rows, page_size=500):
+            calls["n"] += 1
+            raise _kp._Shutdown("signal 15")
+
+        monkeypatch.setattr(_kp, "upsert_streaming_prices", upsert_interrupted_by_sigterm)
+        monkeypatch.setattr(_kp, "connect_db", lambda *a, **k: _RecordingConn())
+
+        with pytest.raises(_kp._Shutdown):
+            _kp._flush_batch(_RecordingConn(), [(DATE, 1, 1.0, 2.0, 0.5, 1.5, 10)])
+        assert calls["n"] == 1, "it must not be retried as though it were a DB error"
+
+    def test_the_handler_is_one_shot(self):
+        """A second SIGTERM during the drain must not raise through the
+        finally: block and abandon the flush it was signalled to complete."""
+        import signal
+
+        try:
+            _kp._install_shutdown_handler()
+            installed = signal.getsignal(signal.SIGTERM)
+            try:
+                installed(signal.SIGTERM, None)
+            except _kp._Shutdown:
+                pass
+            assert signal.getsignal(signal.SIGTERM) is signal.SIG_DFL
+        finally:
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
     def test_sigterm_drains_the_buffer_end_to_end(self, monkeypatch):
         """Drive the real main() loop and interrupt it the way docker does."""
