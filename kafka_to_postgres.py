@@ -1,5 +1,6 @@
 import json
 import os
+import signal
 import sys
 import time
 
@@ -110,7 +111,28 @@ def _commit_offsets(consumer):
         return False
 
 
+class _Shutdown(Exception):
+    """Raised from the SIGTERM handler so main()'s finally: block runs."""
+
+
+def _install_shutdown_handler():
+    """Turn SIGTERM into an exception.
+
+    Python's default SIGTERM action terminates immediately without unwinding,
+    so the finally: block below -- the one that flushes the buffered batch and
+    commits offsets -- never ran on `docker stop`. Making python PID 1 was only
+    half of it; the signal still has to become something the try/finally can
+    see. SIGINT already raises KeyboardInterrupt, which does unwind.
+    """
+
+    def handle(signum, _frame):
+        raise _Shutdown(f"signal {signum}")
+
+    signal.signal(signal.SIGTERM, handle)
+
+
 def main():
+    _install_shutdown_handler()
     consumer = _connect_kafka()
     conn = connect_db()
     batch = []
@@ -146,6 +168,8 @@ def main():
                     _commit_offsets(consumer)
                 batch = []
                 last_flush = now
+    except (_Shutdown, KeyboardInterrupt) as e:
+        print(f"Shutting down: {e}")
     finally:
         if batch:
             # _flush_batch, not a bare upsert: the final batch needs the same
