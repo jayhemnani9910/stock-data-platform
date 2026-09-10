@@ -111,8 +111,17 @@ def _commit_offsets(consumer):
         return False
 
 
-class _Shutdown(Exception):
-    """Raised from the SIGTERM handler so main()'s finally: block runs."""
+class _Shutdown(BaseException):
+    """Raised from the SIGTERM handler so main()'s finally: block runs.
+
+    BaseException, not Exception, for the same reason KeyboardInterrupt is:
+    _flush_batch catches broad `except Exception` to survive a dropped
+    connection, and a signal that subclassed Exception was caught there,
+    reported as "Batch insert failed", retried after a reconnect, and lost --
+    the loop carried on and docker SIGKILLed the container at the end of the
+    grace period. A shutdown is not a database error and must not be handled
+    like one.
+    """
 
 
 def _install_shutdown_handler():
@@ -123,9 +132,15 @@ def _install_shutdown_handler():
     commits offsets -- never ran on `docker stop`. Making python PID 1 was only
     half of it; the signal still has to become something the try/finally can
     see. SIGINT already raises KeyboardInterrupt, which does unwind.
+
+    One-shot: the handler restores the default before raising, so a second
+    SIGTERM arriving while the drain is in progress kills the process outright
+    instead of raising through the finally: block and abandoning the flush it
+    was signalled to complete.
     """
 
     def handle(signum, _frame):
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
         raise _Shutdown(f"signal {signum}")
 
     signal.signal(signal.SIGTERM, handle)
