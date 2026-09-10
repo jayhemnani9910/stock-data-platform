@@ -79,13 +79,18 @@ services:
     volumes: *airflow-volumes
     ports:
       - "8081:8080"
+    # One line per command, all at the same indent. In a YAML `>` scalar a
+    # more-indented line keeps its newline instead of folding to a space, which
+    # split this create call across several shell commands: argparse saw none of
+    # the flags, the user was never created, and the old `|| true` swallowed it
+    # silently -- the UI came up with no account that could log into it.
+    #
+    # So: on failure, check the postcondition rather than assuming. A restart
+    # where the user already exists carries on; a create that genuinely failed
+    # stops the webserver instead of serving a login nobody can pass.
     command: >
       bash -c "
-      (airflow users create
-        --username \"$${AIRFLOW_ADMIN_USER}\"
-        --password \"$${AIRFLOW_ADMIN_PASSWORD}\"
-        --firstname Air --lastname Flow --role Admin
-        --email \"$${AIRFLOW_ADMIN_EMAIL}\" || true) &&
+      (airflow users create --username \"$${AIRFLOW_ADMIN_USER}\" --password \"$${AIRFLOW_ADMIN_PASSWORD}\" --firstname Air --lastname Flow --role Admin --email \"$${AIRFLOW_ADMIN_EMAIL}\" || airflow users list --output plain | awk '{print \$$2}' | grep -qx \"$${AIRFLOW_ADMIN_USER}\") &&
       airflow webserver"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
