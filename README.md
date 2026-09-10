@@ -21,8 +21,8 @@
 Tracks the **full price history of 10 major US equities** (AAPL, AMZN, GOOG, META, MSFT, NFLX, NVDA, TSLA, JPM, DIS) through a fully containerized pipeline:
 
 - **Streams** live market data via Kafka (producer → broker → consumer)
-- **Orchestrates** 22 Airflow DAGs for ETL, fundamentals, earnings, SEC filings, and macro data
-- **Warehouses** everything in a TimescaleDB star schema (3 dimension + 6 fact tables)
+- **Orchestrates** 23 Airflow DAGs for ETL, fundamentals, earnings, SEC filings, and macro data
+- **Warehouses** everything in a TimescaleDB star schema (3 dimension + 7 fact tables)
 - **Visualizes** results on a Bloomberg Terminal-style [dashboard](https://jayhemnani9910.github.io/stock-data-platform/dashboard.html) with Chart.js
 
 ### Data Sources
@@ -77,7 +77,8 @@ The landing page features a Bloomberg-style ticker tape and architecture overvie
 | `dim_company` | Dimension | Ticker, company name, sector, industry, exchange (SCD Type 2) |
 | `dim_date` | Dimension | Year, quarter, month, day, weekend flag |
 | `dim_macro_indicator` | Dimension | FRED macro series metadata |
-| `fact_stock_price_daily` | Fact | OHLCV data per ticker per day |
+| `fact_stock_price_daily` | Fact | OHLCV data per ticker per day, back to each ticker's first traded day |
+| `fact_stock_price_intraday` | Fact | Intraday OHLCV bars, labelled by `bar_interval` (hourly today); ~2.9 years, the most the source allows |
 | `fact_stock_price_monthly` | Fact | Aggregated monthly averages and total volume |
 | `fact_company_fundamentals` | Fact | Market cap, PE ratios, dividends, beta |
 | `fact_earnings` | Fact | Quarterly EPS: estimate vs actual, surprise % |
@@ -99,6 +100,7 @@ Built on **TimescaleDB** for time-series optimized queries on PostgreSQL 14.
 | `earnings_weekly` | Weekly | Fetch earnings dates and EPS surprises |
 | `sec_financials_quarterly` | Quarterly | Fetch SEC 10-K/10-Q financial statements |
 | `macro_daily` | Daily | Fetch FRED macro indicators |
+| `intraday_prices_daily` | Daily | Refresh hourly intraday bars |
 | `monthly_aggregate_dag` | Monthly | Compute monthly price aggregations |
 | `csv_export_dag` | Triggered | Export last 30 days to CSV per ticker |
 | `populate_fundamentals` | On-demand | One-off fundamentals backfill |
@@ -106,7 +108,7 @@ Built on **TimescaleDB** for time-series optimized queries on PostgreSQL 14.
 | `populate_sec_financials` | On-demand | One-off SEC filings backfill |
 | `populate_macro_data` | On-demand | One-off FRED macro backfill |
 
-That is 22 DAGs in total: 10 per-ticker ETL DAGs plus the 12 listed here.
+That is 23 DAGs in total: 10 per-ticker ETL DAGs plus the 13 listed here.
 
 
 ---
@@ -155,6 +157,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── earnings_dag.py            # Weekly earnings data
 │   ├── sec_financials_dag.py      # Quarterly SEC filings
 │   ├── macro_dag.py               # Daily macro indicators
+│   ├── intraday_dag.py            # Daily hourly-bar refresh
 │   └── monthly_aggregate_dag.py   # Monthly rollups
 ├── scripts/                       # Data population and utilities
 │   ├── db_utils.py                # Shared DB connection, batch insert, upsert SQL
@@ -162,6 +165,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── populate_dim_date.py
 │   ├── populate_company_fundamentals.py
 │   ├── populate_earnings.py
+│   ├── populate_stock_price_intraday.py
 │   ├── populate_sec_financials.py
 │   └── populate_macro_data.py
 ├── SQL/                           # Schema and queries
@@ -169,7 +173,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── migrations/                # Re-runnable changes for a live volume
 │   └── aggregate_monthly.sql      # Monthly rollup query
 ├── tests/                         # Unit tests (pytest)
-│   └── unit/                      # 168 tests across 9 modules
+│   └── unit/                      # 181 tests across 10 modules
 ├── site/                          # GitHub Pages (landing page + dashboard)
 ├── docs/                          # Architecture diagrams (D2 format)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB

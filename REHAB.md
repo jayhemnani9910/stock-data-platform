@@ -6,8 +6,8 @@ How to exercise this project, and what must never be run automatically.
 
 A containerised data pipeline. Seven Docker services: TimescaleDB (star-schema
 warehouse), Airflow webserver and scheduler, Zookeeper, Kafka, and a Kafka
-producer/consumer pair. Ten Airflow DAG groups load prices, fundamentals,
-earnings, SEC filings and FRED macro series. A static site under `site/` reads
+producer/consumer pair. Airflow DAGs load daily prices, hourly intraday bars,
+fundamentals, earnings, SEC filings and FRED macro series. A static site under `site/` reads
 JSON exported from the warehouse.
 
 ## Prerequisites
@@ -63,7 +63,7 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 
     pytest tests/ -q
 
-168 unit tests, no database or network needed. This is what CI runs, along with
+181 unit tests, no database or network needed. This is what CI runs, along with
 `ruff check .` and `ruff format --check .`.
 
 They import the real production functions. They used to run against copies, and
