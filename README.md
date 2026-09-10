@@ -18,7 +18,7 @@
 
 ## What It Does
 
-Tracks **10 major US equities** (AAPL, AMZN, GOOG, META, MSFT, NFLX, NVDA, TSLA, JPM, DIS) through a fully containerized pipeline:
+Tracks the **full price history of 10 major US equities** (AAPL, AMZN, GOOG, META, MSFT, NFLX, NVDA, TSLA, JPM, DIS) through a fully containerized pipeline:
 
 - **Streams** live market data via Kafka (producer → broker → consumer)
 - **Orchestrates** 22 Airflow DAGs for ETL, fundamentals, earnings, SEC filings, and macro data
@@ -92,7 +92,7 @@ Built on **TimescaleDB** for time-series optimized queries on PostgreSQL 14.
 
 | DAG | Schedule | Purpose |
 |-----|----------|---------|
-| `etl_stock_data_<ticker>` | Daily | Per-ticker ETL (one DAG per ticker) |
+| `etl_stock_data_<ticker>` | Daily | Per-ticker ETL (one DAG per ticker); first run loads the ticker's full history |
 | `populate_dim_company` | On-demand | Load company dimension table |
 | `populate_dim_date` | On-demand | Generate date dimension (1990-2035) |
 | `fundamentals_daily` | Daily | Fetch company fundamentals |
@@ -169,7 +169,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── migrations/                # Re-runnable changes for a live volume
 │   └── aggregate_monthly.sql      # Monthly rollup query
 ├── tests/                         # Unit tests (pytest)
-│   └── unit/                      # 155 tests across 9 modules
+│   └── unit/                      # 168 tests across 9 modules
 ├── site/                          # GitHub Pages (landing page + dashboard)
 ├── docs/                          # Architecture diagrams (D2 format)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB

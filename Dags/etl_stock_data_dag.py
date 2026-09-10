@@ -39,6 +39,22 @@ def _stage_path_for_run(ticker, stage, run_suffix):
     return os.path.join(_BASE_DIR, f"{ticker.lower()}_{stage}_{run_suffix}.json.gz")
 
 
+def _read_staged(path):
+    """Read a staged frame back, restoring its DatetimeIndex.
+
+    to_json(orient="split") writes a DatetimeIndex as epoch milliseconds, and
+    read_json's convert_axes heuristic declines to convert negative values --
+    so every date before 1970 comes back as a plain int64 and row.Index.date()
+    dies with "'int' object has no attribute 'date'". A 25-year extract window
+    hid this for years; DIS trades back to 1962 and broke the moment the window
+    was lifted.
+    """
+    df = pd.read_json(path, orient="split", compression="gzip")
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df.index = pd.to_datetime(df.index, unit="ms")
+    return df
+
+
 def _normalize_columns(df, ticker):
     """Normalize yfinance DataFrame columns to standard names: open, high, low, close, volume."""
     df = df.copy()
@@ -68,7 +84,7 @@ def _get_last_loaded_date(ticker):
 
     Database errors are deliberately allowed to propagate. Swallowing them here
     returns None, which extract_data cannot tell apart from a genuine first run,
-    so a brief outage silently turns an incremental pull into a 25-year refetch
+    so a brief outage silently turns an incremental pull into a full-history refetch
     and hides the outage itself.
     """
     with get_db_connection() as conn:
@@ -100,7 +116,7 @@ def _has_corporate_action_since(ticker, since):
     consistent set of factors across the series.
 
     A failure here must not fail the DAG -- fall back to the incremental path
-    and say so, because the alternative is refetching 25 years on every run.
+    and say so, because the alternative is refetching every bar on every run.
     """
     try:
         actions = yf.Ticker(ticker).actions
@@ -119,16 +135,26 @@ def extract_data(ticker, ti, ts_nodash):
         end_date = datetime.today()
         last_date = _get_last_loaded_date(ticker)
         if last_date and _has_corporate_action_since(ticker, last_date):
-            start_date = end_date - timedelta(days=365 * 25)
+            full_history = True
             print(f"Corporate action since {last_date} for {ticker}: refetching full history to re-adjust")
         elif last_date:
+            full_history = False
             start_date = last_date - timedelta(days=1)
             print(f"Incremental extract for {ticker} from {start_date}")
         else:
-            start_date = end_date - timedelta(days=365 * 25)
+            full_history = True
             print(f"Full extract for {ticker} (first run)")
 
-        df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+        if full_history:
+            # period="max" reaches each ticker's first traded day. A fixed
+            # 25-year window instead cut every listing older than that at the
+            # same arbitrary date: DIS lost 9,995 bars back to 1962, JPM 5,430,
+            # AAPL 5,242 -- 26,338 across the ten, a third of the available
+            # history, including the dot-com crash for AMZN and NVDA.
+            # dim_date starts in 1945, so the date foreign key covers this.
+            df = yf.download(ticker, period="max", progress=False)
+        else:
+            df = yf.download(ticker, start=start_date, end=end_date, progress=False)
         if df.empty:
             raise ValueError("Downloaded dataframe is empty.")
         df = _normalize_columns(df, ticker)
@@ -147,7 +173,7 @@ def transform_data(ticker, ti, ts_nodash):
         raw_path = ti.xcom_pull(key="raw_path", task_ids=f"{ticker}_extract")
         if not raw_path:
             raise ValueError("Missing raw dataframe path.")
-        df = pd.read_json(raw_path, orient="split", compression="gzip")
+        df = _read_staged(raw_path)
         missing_cols = [col for col in STANDARD_COLS if col not in df.columns]
         if missing_cols:
             raise ValueError(f"Missing columns after normalization: {missing_cols}")
@@ -170,7 +196,7 @@ def load_data(ticker, ti):
     try:
         if not cleaned_path:
             raise ValueError("Missing cleaned dataframe path.")
-        df = pd.read_json(cleaned_path, orient="split", compression="gzip")
+        df = _read_staged(cleaned_path)
 
         with get_db_connection() as conn:
             company_key = get_company_key(conn, ticker)

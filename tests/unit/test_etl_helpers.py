@@ -195,7 +195,7 @@ class TestHasCorporateActionSince:
         assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is False
 
     def test_a_lookup_failure_stays_incremental(self, monkeypatch):
-        """Refetching 25 years on every transient yfinance error would be worse
+        """Refetching the whole history on every transient yfinance error would be worse
         than the drift it prevents."""
 
         def boom(_):
@@ -203,3 +203,104 @@ class TestHasCorporateActionSince:
 
         monkeypatch.setattr(_etl.yf, "Ticker", boom)
         assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is False
+
+
+class _Spy:
+    """Captures how extract_data asked yfinance for data."""
+
+    def __init__(self):
+        self.kwargs = None
+
+    def __call__(self, ticker, **kwargs):
+        self.kwargs = kwargs
+        idx = pd.to_datetime(["2026-09-08", "2026-09-09"])
+        return pd.DataFrame(
+            {"Open": [1.0, 1.0], "High": [2.0, 2.0], "Low": [0.5, 0.5], "Close": [1.5, 1.5], "Volume": [10, 10]},
+            index=idx,
+        )
+
+
+class _Ti:
+    def __init__(self):
+        self.pushed = {}
+
+    def xcom_push(self, key, value):
+        self.pushed[key] = value
+
+
+class TestExtractWindow:
+    """A fixed 25-year window truncated every listing older than it at the same
+    arbitrary date -- DIS lost 9,995 bars back to 1962, 26,338 across the ten
+    tickers. A first load must reach each ticker's own first traded day."""
+
+    def _run(self, monkeypatch, last_date, action=False):
+        spy = _Spy()
+        monkeypatch.setattr(_etl.yf, "download", spy)
+        monkeypatch.setattr(_etl, "_get_last_loaded_date", lambda t: last_date)
+        monkeypatch.setattr(_etl, "_has_corporate_action_since", lambda t, d: action)
+        monkeypatch.setattr(_etl, "_prune_stale_stage_files", lambda: None)
+        _etl.extract_data("AAPL", _Ti(), "20260910T000000")
+        return spy.kwargs
+
+    def test_first_load_asks_for_the_whole_history(self, monkeypatch):
+        kwargs = self._run(monkeypatch, last_date=None)
+        assert kwargs.get("period") == "max"
+        assert "start" not in kwargs, "a start date would re-impose a window"
+
+    def test_a_corporate_action_also_refetches_everything(self, monkeypatch):
+        kwargs = self._run(monkeypatch, last_date=date(2026, 3, 12), action=True)
+        assert kwargs.get("period") == "max"
+
+    def test_a_routine_run_stays_incremental(self, monkeypatch):
+        kwargs = self._run(monkeypatch, last_date=date(2026, 9, 9), action=False)
+        assert "period" not in kwargs, "an incremental run must not refetch everything"
+        assert kwargs["start"] == date(2026, 9, 8), "one day of overlap"
+
+
+class TestReadStaged:
+    """to_json(orient="split") writes a DatetimeIndex as epoch milliseconds and
+    read_json declines to convert negative ones, so every pre-1970 date came
+    back as int64 and the load died on row.Index.date(). The 25-year extract
+    window hid it; DIS trades back to 1962."""
+
+    def _stage(self, tmp_path, dates):
+        import gzip
+
+        df = pd.DataFrame(
+            {
+                "open": [1.0] * len(dates),
+                "high": [2.0] * len(dates),
+                "low": [0.5] * len(dates),
+                "close": [1.5] * len(dates),
+                "volume": [10] * len(dates),
+            },
+            index=pd.to_datetime(dates),
+        )
+        path = tmp_path / "staged.json.gz"
+        with gzip.open(path, "wt", encoding="utf-8") as f:
+            f.write(df.to_json(orient="split"))
+        return str(path)
+
+    def test_modern_dates_round_trip(self, tmp_path):
+        df = _etl._read_staged(self._stage(tmp_path, ["2026-09-08", "2026-09-09"]))
+        assert isinstance(df.index, pd.DatetimeIndex)
+        assert df.index[0].date() == date(2026, 9, 8)
+
+    def test_pre_1970_dates_round_trip(self, tmp_path):
+        """The regression. DIS's first bar is 1962-01-02."""
+        df = _etl._read_staged(self._stage(tmp_path, ["1962-01-02", "1962-01-03"]))
+        assert isinstance(df.index, pd.DatetimeIndex)
+        assert df.index[0].date() == date(1962, 1, 2)
+
+    def test_dates_straddling_the_epoch_round_trip(self, tmp_path):
+        df = _etl._read_staged(self._stage(tmp_path, ["1969-12-31", "1970-01-02"]))
+        assert [d.date() for d in df.index] == [date(1969, 12, 31), date(1970, 1, 2)]
+
+    def test_the_index_supports_date_which_is_what_load_calls(self, tmp_path):
+        df = _etl._read_staged(self._stage(tmp_path, ["1962-01-02"]))
+        for row in df.itertuples():
+            assert row.Index.date() == date(1962, 1, 2)
+
+    def test_values_survive(self, tmp_path):
+        df = _etl._read_staged(self._stage(tmp_path, ["1962-01-02"]))
+        assert df["close"].iloc[0] == 1.5 and df["volume"].iloc[0] == 10
