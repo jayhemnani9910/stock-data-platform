@@ -101,32 +101,65 @@ def _get_last_loaded_date(ticker):
             return row[0] if row and row[0] else None
 
 
-def _has_corporate_action_since(ticker, since):
-    """True if a dividend or split has gone ex for this ticker since `since`.
+# How far back each incremental run re-reads. Long enough to still hold prices
+# from before an ex-date when the provider publishes a re-adjustment a few days
+# late, short enough to stay one cheap request.
+OVERLAP_DAYS = 10
 
-    yf.download returns split- and dividend-adjusted prices, adjusted as of the
-    moment of the call. An incremental load only refetches the last two days,
-    so everything older keeps the factors it was first loaded with. Each
-    corporate action then leaves a step in the stored series that is not a
-    market move: AAPL's closes measured 1.001785x too high for every row before
-    2026-03-12 and exactly right after it, a 0.18% discontinuity that widens
-    with every dividend and would be a multiple after a split.
+# Median |stored/fresh - 1| above which the adjustment basis has changed.
+# Measured on all ten tickers with nothing changed: 3e-14 to 4e-13, pure
+# floating-point noise. The smallest real adjustment worth catching -- a $0.01
+# dividend on a $220 stock -- is 4.5e-5. 1e-6 sits seven orders of magnitude
+# above the noise and 45x below that.
+ADJUSTMENT_TOLERANCE = 1e-6
 
-    Detecting the action and refetching the full history restores one
-    consistent set of factors across the series.
 
-    A failure here must not fail the DAG -- fall back to the incremental path
-    and say so, because the alternative is refetching every bar on every run.
+def _get_stored_closes(ticker, since):
+    """{date: close} for this ticker from `since` onwards."""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT f.date, f.close FROM fact_stock_price_daily f
+                JOIN dim_company d ON f.company_key = d.company_key
+                WHERE d.ticker = %s AND d.is_current = TRUE AND f.date >= %s
+            """,
+                (ticker, since),
+            )
+            return dict(cur.fetchall())
+
+
+def _adjustment_changed(stored, fresh):
+    """True if freshly downloaded prices sit on a different split/dividend basis.
+
+    yf.download returns prices adjusted as of the moment of the call, so every
+    dividend or split rescales the entire history before its ex-date. This
+    compares the overlap the incremental run re-reads anyway, rather than
+    trusting a corporate-actions list, because that list is only as good as
+    the date it is checked against. It used to be checked against the last
+    loaded date, and the Kafka consumer writes the current session's row
+    during market hours -- so when NVDA went ex-dividend on 2026-09-10, the
+    nightly run found that date already loaded, asked whether any action fell
+    *after* it, got no, and left 6,949 NVDA closes 0.11% high.
+
+    An adjustment moves every older row by the same factor, so the median
+    ratio shifts. A single late correction to one day's close -- which the
+    overlap upsert fixes by itself -- does not move the median, and must not
+    trigger a 60-year refetch. The newest stored day is excluded: it may be a
+    streaming row or a close taken before the provider finalised it.
+
+    stored: {date: close}. fresh: pandas Series of closes indexed by date.
     """
-    try:
-        actions = yf.Ticker(ticker).actions
-        if actions is None or actions.empty:
-            return False
-        action_dates = pd.to_datetime(actions.index).tz_localize(None).date
-        return any(d > since for d in action_dates)
-    except Exception as e:
-        print(f"Could not check corporate actions for {ticker}: {e}. Staying incremental.")
+    if not stored or fresh is None or fresh.empty:
         return False
+    newest = max(stored)
+    fresh_by_day = {pd.Timestamp(k).date(): float(v) for k, v in fresh.items()}
+    ratios = [
+        stored[day] / fresh_by_day[day] for day in stored if day != newest and day in fresh_by_day and fresh_by_day[day]
+    ]
+    if not ratios:
+        return False
+    return abs(float(pd.Series(ratios).median()) - 1) > ADJUSTMENT_TOLERANCE
 
 
 def extract_data(ticker, ti, ts_nodash):
@@ -134,30 +167,30 @@ def extract_data(ticker, ti, ts_nodash):
         _prune_stale_stage_files()
         end_date = datetime.today()
         last_date = _get_last_loaded_date(ticker)
-        if last_date and _has_corporate_action_since(ticker, last_date):
-            full_history = True
-            print(f"Corporate action since {last_date} for {ticker}: refetching full history to re-adjust")
-        elif last_date:
-            full_history = False
-            start_date = last_date - timedelta(days=1)
+        df = None
+        if last_date:
+            # Re-read OVERLAP_DAYS, not one day: the overlap corrects any close
+            # taken before the provider finalised it, and it is what
+            # _adjustment_changed compares against.
+            start_date = last_date - timedelta(days=OVERLAP_DAYS)
             print(f"Incremental extract for {ticker} from {start_date}")
+            df = _normalize_columns(yf.download(ticker, start=start_date, end=end_date, progress=False), ticker)
+            if not df.empty and _adjustment_changed(_get_stored_closes(ticker, start_date), df["close"]):
+                print(f"Adjustment basis changed for {ticker}: refetching full history to re-adjust")
+                df = None
         else:
-            full_history = True
             print(f"Full extract for {ticker} (first run)")
 
-        if full_history:
+        if df is None:
             # period="max" reaches each ticker's first traded day. A fixed
             # 25-year window instead cut every listing older than that at the
             # same arbitrary date: DIS lost 9,995 bars back to 1962, JPM 5,430,
             # AAPL 5,242 -- 26,338 across the ten, a third of the available
             # history, including the dot-com crash for AMZN and NVDA.
             # dim_date starts in 1945, so the date foreign key covers this.
-            df = yf.download(ticker, period="max", progress=False)
-        else:
-            df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+            df = _normalize_columns(yf.download(ticker, period="max", progress=False), ticker)
         if df.empty:
             raise ValueError("Downloaded dataframe is empty.")
-        df = _normalize_columns(df, ticker)
         run_suffix = ts_nodash
         raw_path = _stage_path_for_run(ticker, "raw", run_suffix)
         with gzip.open(raw_path, "wt", encoding="utf-8") as f:

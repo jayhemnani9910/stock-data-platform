@@ -102,7 +102,7 @@ Built on **TimescaleDB** for time-series optimized queries on PostgreSQL 14.
 | `sec_financials_quarterly` | Quarterly | Fetch SEC 10-K/10-Q financial statements |
 | `macro_daily` | Daily | Fetch FRED macro indicators |
 | `intraday_prices_daily` | Daily | Reload hourly bars from Alpaca (skipped if no keys are set) |
-| `monthly_aggregate_dag` | Monthly | Compute monthly price aggregations |
+| `monthly_aggregate_dag` | Daily | Recompute monthly price aggregations (daily, so the current month stays current) |
 | `csv_export_dag` | Triggered | Export last 30 days to CSV per ticker |
 | `populate_fundamentals` | On-demand | One-off fundamentals backfill |
 | `populate_earnings` | On-demand | One-off earnings backfill |
@@ -174,7 +174,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── migrations/                # Re-runnable changes for a live volume
 │   └── aggregate_monthly.sql      # Monthly rollup query
 ├── tests/                         # Unit tests (pytest)
-│   └── unit/                      # 199 tests across 10 modules
+│   └── unit/                      # 202 tests across 10 modules
 ├── site/                          # GitHub Pages (landing page + dashboard)
 ├── docs/                          # Architecture diagrams (D2 format)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB

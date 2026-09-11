@@ -63,7 +63,7 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 
     pytest tests/ -q
 
-199 unit tests, no database or network needed. This is what CI runs, along with
+202 unit tests, no database or network needed. This is what CI runs, along with
 `ruff check .` and `ruff format --check .`.
 
 They import the real production functions. They used to run against copies, and
@@ -102,9 +102,11 @@ suite, gut a function and confirm the suite goes red before believing it.
 
 A first-run `etl_stock_data_<ticker>` pulls the ticker's entire history from
 yfinance -- back to 1962 for DIS, 1980 for AAPL and JPM -- and takes a minute
-or so per ticker. The same happens on any run where a dividend or split
-has gone ex since the last load — that is deliberate: it re-adjusts the whole
-series so the history does not step at the boundary.
+or so per ticker. The same happens on any run where the last ten days no
+longer match what is stored — a dividend or split has re-adjusted the history —
+and that is deliberate: it re-adjusts the whole series so it does not step at
+the boundary. A single late correction to one day's close does not trigger it;
+the ten-day re-read fixes that on its own.
 
 `sec_financials_quarterly` walks EDGAR filings for ten companies and is the
 slowest DAG in the project.

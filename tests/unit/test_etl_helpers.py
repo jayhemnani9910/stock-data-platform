@@ -14,7 +14,7 @@ import importlib.util
 import os
 import sys
 import types
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 import pytest
@@ -148,74 +148,93 @@ class TestNormalizeColumns:
         assert list(df.columns) == ["Open", "High", "Low", "Close", "Volume"]
 
 
-class _FakeTicker:
-    def __init__(self, actions):
-        self.actions = actions
+# NVDA as stored and as Yahoo served it after going ex-dividend on 2026-09-10:
+# every close before the ex-date re-adjusted by 1/1.001119, and the two newest
+# days already refreshed by the previous incremental run.
+_NVDA_STORED = {
+    date(2026, 9, 1): 217.440002,
+    date(2026, 9, 2): 224.410004,
+    date(2026, 9, 3): 228.449997,
+    date(2026, 9, 4): 230.360001,
+    date(2026, 9, 8): 225.729996,
+    date(2026, 9, 9): 223.419998,
+    date(2026, 9, 10): 218.360001,
+}
+_NVDA_FRESH = pd.Series(
+    [217.196976, 224.159180, 228.194656, 230.102524, 225.477692, 223.419998, 218.360001],
+    index=pd.to_datetime(list(_NVDA_STORED)),
+)
 
 
-def _actions(dates):
-    if dates is None:
-        return None
-    idx = pd.to_datetime(dates).tz_localize("America/New_York")
-    return pd.DataFrame({"Dividends": [0.26] * len(idx), "Stock Splits": [0.0] * len(idx)}, index=idx)
+def _series(stored, scale=1.0, overrides=None):
+    s = pd.Series({pd.Timestamp(d): v * scale for d, v in stored.items()})
+    for d, v in (overrides or {}).items():
+        s[pd.Timestamp(d)] = v
+    return s
 
 
-class TestHasCorporateActionSince:
-    """yf.download returns prices adjusted as of the moment of the call, and an
-    incremental load only refetches two days. Every dividend therefore left a
-    step in the stored series: AAPL measured 1.001785x too high for every row
-    before 2026-03-12 and exactly right after it."""
+class TestAdjustmentChanged:
+    """Compare the re-read overlap to what is stored, instead of trusting a
+    corporate-actions list checked against a date the Kafka consumer may
+    already have written."""
 
-    def _patch(self, monkeypatch, actions):
-        monkeypatch.setattr(_etl.yf, "Ticker", lambda t: _FakeTicker(actions))
+    def test_the_nvda_regression(self):
+        """Ex-dividend on the newest loaded date: the old check asked whether
+        an action fell *after* 2026-09-10, got no, and left 6,949 closes 0.11%
+        high. The overlap sees the shift."""
+        assert _etl._adjustment_changed(_NVDA_STORED, _NVDA_FRESH) is True
 
-    def test_dividend_after_last_load_triggers_a_refetch(self, monkeypatch):
-        self._patch(monkeypatch, _actions(["2026-08-10"]))
-        assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is True
+    def test_nothing_changed(self):
+        assert _etl._adjustment_changed(_NVDA_STORED, _series(_NVDA_STORED)) is False
 
-    def test_action_before_last_load_does_not(self, monkeypatch):
-        self._patch(monkeypatch, _actions(["2026-02-09"]))
-        assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is False
+    def test_floating_point_noise_is_not_a_change(self):
+        """Measured noise between stored and fresh closes is ~1e-13."""
+        assert _etl._adjustment_changed(_NVDA_STORED, _series(_NVDA_STORED, scale=1 + 1e-12)) is False
 
-    def test_action_on_the_boundary_does_not(self, monkeypatch):
-        """The boundary date is already loaded, so its adjustment is applied."""
-        self._patch(monkeypatch, _actions(["2026-03-12"]))
-        assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is False
+    def test_the_smallest_real_dividend_is_caught(self):
+        """$0.01 on a $220 stock rescales history by ~4.5e-5."""
+        assert _etl._adjustment_changed(_NVDA_STORED, _series(_NVDA_STORED, scale=1 / (1 + 4.5e-5))) is True
 
-    def test_only_the_newest_action_needs_to_be_recent(self, monkeypatch):
-        self._patch(monkeypatch, _actions(["2020-01-01", "2026-08-10"]))
-        assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is True
+    def test_a_split_is_caught(self):
+        assert _etl._adjustment_changed(_NVDA_STORED, _series(_NVDA_STORED, scale=0.1)) is True
 
-    def test_no_actions(self, monkeypatch):
-        self._patch(monkeypatch, _actions([]))
-        assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is False
+    def test_one_late_close_correction_is_not_an_adjustment(self):
+        """DIS 2026-09-10 was stored at 104.99 and finalised at 105.82. The
+        overlap upsert fixes one bad day; it must not trigger a 60-year
+        refetch."""
+        fresh = _series(_NVDA_STORED, overrides={date(2026, 9, 8): 230.0})
+        assert _etl._adjustment_changed(_NVDA_STORED, fresh) is False
 
-    def test_none_actions(self, monkeypatch):
-        self._patch(monkeypatch, None)
-        assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is False
+    def test_the_newest_stored_day_is_ignored(self):
+        """It may be a streaming row or a close taken before finalisation.
+        With a long overlap the median would absorb it anyway; the exclusion
+        matters when the overlap is short -- two stored days, where a bad
+        newest row is half the evidence."""
+        stored = {date(2026, 9, 9): 223.42, date(2026, 9, 10): 218.36}
+        fresh = pd.Series([223.42, 300.0], index=pd.to_datetime([date(2026, 9, 9), date(2026, 9, 10)]))
+        assert _etl._adjustment_changed(stored, fresh) is False
 
-    def test_a_lookup_failure_stays_incremental(self, monkeypatch):
-        """Refetching the whole history on every transient yfinance error would be worse
-        than the drift it prevents."""
+    def test_no_overlap(self):
+        assert _etl._adjustment_changed(_NVDA_STORED, pd.Series(dtype=float)) is False
+        assert _etl._adjustment_changed({}, _NVDA_FRESH) is False
 
-        def boom(_):
-            raise RuntimeError("yfinance is down")
-
-        monkeypatch.setattr(_etl.yf, "Ticker", boom)
-        assert _etl._has_corporate_action_since("AAPL", date(2026, 3, 12)) is False
+    def test_tolerance_sits_between_noise_and_the_smallest_dividend(self):
+        assert 1e-12 < _etl.ADJUSTMENT_TOLERANCE < 4.5e-5
 
 
 class _Spy:
-    """Captures how extract_data asked yfinance for data."""
+    """Captures every way extract_data asked yfinance for data."""
 
-    def __init__(self):
-        self.kwargs = None
+    def __init__(self, fresh_close=1.5):
+        self.calls = []
+        self.fresh_close = fresh_close
 
     def __call__(self, ticker, **kwargs):
-        self.kwargs = kwargs
+        self.calls.append(kwargs)
         idx = pd.to_datetime(["2026-09-08", "2026-09-09"])
+        c = self.fresh_close
         return pd.DataFrame(
-            {"Open": [1.0, 1.0], "High": [2.0, 2.0], "Low": [0.5, 0.5], "Close": [1.5, 1.5], "Volume": [10, 10]},
+            {"Open": [c, c], "High": [c * 2, c * 2], "Low": [c / 2, c / 2], "Close": [c, c], "Volume": [10, 10]},
             index=idx,
         )
 
@@ -229,32 +248,39 @@ class _Ti:
 
 
 class TestExtractWindow:
-    """A fixed 25-year window truncated every listing older than it at the same
-    arbitrary date -- DIS lost 9,995 bars back to 1962, 26,338 across the ten
-    tickers. A first load must reach each ticker's own first traded day."""
+    """A first load reaches each ticker's first traded day; a routine run
+    re-reads OVERLAP_DAYS; an adjustment change escalates to the full history."""
 
-    def _run(self, monkeypatch, last_date, action=False):
-        spy = _Spy()
+    def _run(self, monkeypatch, last_date, stored=None, fresh_close=1.5):
+        spy = _Spy(fresh_close)
         monkeypatch.setattr(_etl.yf, "download", spy)
         monkeypatch.setattr(_etl, "_get_last_loaded_date", lambda t: last_date)
-        monkeypatch.setattr(_etl, "_has_corporate_action_since", lambda t, d: action)
+        monkeypatch.setattr(_etl, "_get_stored_closes", lambda t, since: stored or {})
         monkeypatch.setattr(_etl, "_prune_stale_stage_files", lambda: None)
         _etl.extract_data("AAPL", _Ti(), "20260910T000000")
-        return spy.kwargs
+        return spy.calls
 
     def test_first_load_asks_for_the_whole_history(self, monkeypatch):
-        kwargs = self._run(monkeypatch, last_date=None)
-        assert kwargs.get("period") == "max"
-        assert "start" not in kwargs, "a start date would re-impose a window"
+        (call,) = self._run(monkeypatch, last_date=None)
+        assert call.get("period") == "max"
+        assert "start" not in call, "a start date would re-impose a window"
 
-    def test_a_corporate_action_also_refetches_everything(self, monkeypatch):
-        kwargs = self._run(monkeypatch, last_date=date(2026, 3, 12), action=True)
-        assert kwargs.get("period") == "max"
+    def test_a_routine_run_rereads_the_overlap_only(self, monkeypatch):
+        stored = {date(2026, 9, 8): 1.5, date(2026, 9, 9): 1.5}
+        (call,) = self._run(monkeypatch, last_date=date(2026, 9, 9), stored=stored)
+        assert "period" not in call
+        assert call["start"] == date(2026, 9, 9) - timedelta(days=_etl.OVERLAP_DAYS)
 
-    def test_a_routine_run_stays_incremental(self, monkeypatch):
-        kwargs = self._run(monkeypatch, last_date=date(2026, 9, 9), action=False)
-        assert "period" not in kwargs, "an incremental run must not refetch everything"
-        assert kwargs["start"] == date(2026, 9, 8), "one day of overlap"
+    def test_the_overlap_is_longer_than_one_day(self):
+        """One day of overlap could not see an adjustment published late, and
+        left a late close correction for the next night."""
+        assert _etl.OVERLAP_DAYS >= 5
+
+    def test_a_changed_basis_escalates_to_the_full_history(self, monkeypatch):
+        stored = {date(2026, 9, 8): 1.5, date(2026, 9, 9): 1.5}
+        calls = self._run(monkeypatch, last_date=date(2026, 9, 9), stored=stored, fresh_close=1.5 / 1.001119)
+        assert len(calls) == 2, "incremental read, then the full refetch"
+        assert "start" in calls[0] and calls[1].get("period") == "max"
 
 
 class TestReadStaged:

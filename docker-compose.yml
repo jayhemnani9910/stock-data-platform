@@ -37,6 +37,10 @@ x-airflow-volumes: &airflow-volumes
   - ./Dags:/opt/airflow/dags
   - ./scripts:/opt/airflow/scripts
   - ./SQL:/opt/airflow/sql
+  # Task logs on the host. Inside the container they vanished on every
+  # recreate, which is how the log that would have shown NVDA's missed
+  # re-adjustment was lost. Gitignored.
+  - ./logs:/opt/airflow/logs
 
 services:
   timescaledb:
