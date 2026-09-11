@@ -63,7 +63,7 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 
     pytest tests/ -q
 
-181 unit tests, no database or network needed. This is what CI runs, along with
+199 unit tests, no database or network needed. This is what CI runs, along with
 `ruff check .` and `ruff format --check .`.
 
 They import the real production functions. They used to run against copies, and
@@ -108,3 +108,10 @@ series so the history does not step at the boundary.
 
 `sec_financials_quarterly` walks EDGAR filings for ten companies and is the
 slowest DAG in the project.
+
+`intraday_prices_daily` reloads every hourly bar back to 2016 from Alpaca —
+about 18,800 per ticker — on each run, so every bar shares one adjustment
+basis. Alpaca serves ~500 bars per request whatever limit is asked for, so a
+full reload is ~1,600 requests and about 30 minutes — inside the free tier's
+200/minute. Without Alpaca keys in `.env` the run is marked skipped and the
+stored bars stay as they are.

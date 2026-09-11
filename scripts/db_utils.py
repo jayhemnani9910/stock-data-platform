@@ -94,7 +94,7 @@ def upsert_streaming_prices(conn, rows, page_size=500):
 
 UPSERT_STOCK_PRICE_INTRADAY_SQL = """
     INSERT INTO fact_stock_price_intraday
-        (ts, company_key, bar_interval, trade_date, open, high, low, close, volume)
+        (ts, company_key, bar_interval, trade_date, open, high, low, close, volume, source)
     VALUES %s
     ON CONFLICT (ts, company_key, bar_interval) DO UPDATE
     SET trade_date = EXCLUDED.trade_date,
@@ -102,7 +102,8 @@ UPSERT_STOCK_PRICE_INTRADAY_SQL = """
         high = EXCLUDED.high,
         low = EXCLUDED.low,
         close = EXCLUDED.close,
-        volume = EXCLUDED.volume
+        volume = EXCLUDED.volume,
+        source = EXCLUDED.source
 """
 UPSERT_FUNDAMENTALS_SQL = """
     INSERT INTO fact_company_fundamentals

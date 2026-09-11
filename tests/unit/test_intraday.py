@@ -1,109 +1,219 @@
-"""Tests for scripts/populate_stock_price_intraday.py — _to_rows()."""
+"""Tests for scripts/populate_stock_price_intraday.py."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import populate_stock_price_intraday as psi
 import pytest
 from db_utils import UPSERT_STOCK_PRICE_INTRADAY_SQL
-
-pytest.importorskip("yfinance", reason="yfinance not installed")
-
-from populate_stock_price_intraday import BAR_INTERVAL, PERIOD, _to_rows
 
 ET = ZoneInfo("America/New_York")
 
 
-def _frame(rows):
-    """rows: (iso timestamp in ET, open, high, low, close, volume)."""
-    idx = pd.DatetimeIndex([pd.Timestamp(t, tz=ET) for t, *_ in rows], name="Datetime")
-    return pd.DataFrame(
-        {
-            "Open": [r[1] for r in rows],
-            "High": [r[2] for r in rows],
-            "Low": [r[3] for r in rows],
-            "Close": [r[4] for r in rows],
-            "Volume": [r[5] for r in rows],
-        },
-        index=idx,
-    )
+def _bar(et_clock, o, h, low, c, v, day="2026-09-09"):
+    """One Alpaca-shaped 30-minute bar; t is UTC like the API returns."""
+    t = pd.Timestamp(f"{day} {et_clock}", tz=ET).tz_convert("UTC")
+    return {"t": t.strftime("%Y-%m-%dT%H:%M:%SZ"), "o": o, "h": h, "l": low, "c": c, "v": v}
 
 
-SESSION = _frame(
-    [
-        ("2026-09-09 09:30:00", 315.93, 318.13, 314.32, 314.75, 7809919),
-        ("2026-09-09 15:30:00", 315.55, 315.94, 314.88, 315.41, 4968709),
-    ]
-)
+# The real AAPL 2026-09-09 session, 30-minute bars from Alpaca, plus the
+# pre-market and after-hours bars the fold must discard.
+SESSION = [
+    _bar("08:30", 315.10, 315.40, 315.00, 315.20, 99_000),  # pre-market: dropped
+    _bar("09:00", 315.20, 317.90, 315.10, 315.93, 40_000),  # pre-market: dropped
+    _bar("09:30", 315.93, 318.13, 314.33, 316.00, 4_000_000),
+    _bar("10:00", 316.00, 316.50, 314.30, 314.75, 3_231_960),
+    _bar("10:30", 314.71, 314.72, 312.11, 312.90, 2_700_000),
+    _bar("11:00", 312.90, 313.20, 312.20, 312.50, 2_609_096),
+    _bar("15:30", 315.56, 315.94, 314.88, 315.42, 4_972_953),
+    _bar("16:00", 315.42, 316.00, 315.30, 315.94, 7_157_345),  # after-hours: dropped
+]
+
+
+class TestFoldToSessionHours:
+    """Alpaca's native 1Hour bars start on the clock and include pre- and
+    post-market trading. 30-minute bars are folded into :30-anchored
+    regular-session hours instead, the way Yahoo cuts them."""
+
+    def test_hours_are_anchored_at_half_past(self):
+        hours = psi._fold_to_session_hours(SESSION)
+        assert [t.strftime("%H:%M") for t in hours.index] == ["09:30", "10:30", "15:30"]
+
+    def test_extended_hours_are_dropped(self):
+        """The 08:30, 09:00 and 16:00 bars are outside the session."""
+        hours = psi._fold_to_session_hours(SESSION)
+        assert hours["Volume"].sum() == 4_000_000 + 3_231_960 + 2_700_000 + 2_609_096 + 4_972_953
+
+    def test_open_is_the_first_half_hour_and_close_the_second(self):
+        first = psi._fold_to_session_hours(SESSION).iloc[0]
+        assert first["Open"] == 315.93
+        assert first["Close"] == 314.75
+
+    def test_high_and_low_span_both_half_hours(self):
+        first = psi._fold_to_session_hours(SESSION).iloc[0]
+        assert first["High"] == 318.13
+        assert first["Low"] == 314.30
+
+    def test_volume_is_summed(self):
+        first = psi._fold_to_session_hours(SESSION).iloc[0]
+        assert first["Volume"] == 4_000_000 + 3_231_960
+
+    def test_the_last_hour_is_a_single_half_hour_like_yahoos(self):
+        last = psi._fold_to_session_hours(SESSION).iloc[-1]
+        assert last["Close"] == 315.42 and last["Volume"] == 4_972_953
+
+    def test_the_premarket_opening_bell_blend_cannot_leak_in(self):
+        """Alpaca's native 09:00 hour mixes pre-market with the open. Folding
+        30-minute bars must never let a pre-market price set the 09:30 open."""
+        first = psi._fold_to_session_hours(SESSION).iloc[0]
+        assert first["Open"] != 315.20
+
+    def test_index_is_eastern(self):
+        hours = psi._fold_to_session_hours(SESSION)
+        assert str(hours.index.tz) == "America/New_York"
+
+    def test_works_across_the_dst_change(self):
+        """Filtering on Eastern wall-clock time, not a UTC offset, keeps the
+        session right on both sides of a daylight-saving switch."""
+        winter = [_bar("09:30", 1, 2, 0.5, 1.5, 100, day="2026-01-15")]
+        summer = [_bar("09:30", 1, 2, 0.5, 1.5, 100, day="2026-07-15")]
+        for bars in (winter, summer):
+            assert psi._fold_to_session_hours(bars).index[0].strftime("%H:%M") == "09:30"
+
+    def test_empty_input(self):
+        assert psi._fold_to_session_hours([]).empty
+
+    def test_only_extended_hours(self):
+        assert psi._fold_to_session_hours([SESSION[0], SESSION[-1]]).empty
 
 
 class TestToRows:
-    def test_one_row_per_bar(self):
-        assert len(_to_rows(SESSION, 1)) == 2
-
     def test_column_order_matches_the_insert(self):
-        """The tuple is fed positionally into UPSERT_STOCK_PRICE_INTRADAY_SQL."""
-        (ts, ck, interval, trade_date, o, h, low, c, v) = _to_rows(SESSION, 7)[0]
-        assert ck == 7
-        assert interval == BAR_INTERVAL
-        assert trade_date == date(2026, 9, 9)
-        assert (o, h, low, c, v) == (315.93, 318.13, 314.32, 314.75, 7809919)
-        assert ts.tzinfo is not None, "timestamps must stay tz-aware"
+        hours = psi._fold_to_session_hours(SESSION)
+        (ts, ck, interval, trade_date, o, h, low, c, v, source) = psi._to_rows(hours, 7, "alpaca")[0]
+        assert (ck, interval, trade_date, source) == (7, "1h", date(2026, 9, 9), "alpaca")
+        assert (o, h, low, c, v) == (315.93, 318.13, 314.30, 314.75, 7_231_960)
+        assert ts.tzinfo is not None
+
+    def test_every_row_is_labelled_with_its_source(self):
+        hours = psi._fold_to_session_hours(SESSION)
+        assert {r[9] for r in psi._to_rows(hours, 1, "alpaca")} == {"alpaca"}
+
+    def test_zero_volume_hours_are_dropped(self):
+        hours = psi._fold_to_session_hours([_bar("09:30", 1, 1, 1, 1, 0)])
+        assert psi._to_rows(hours, 1, "alpaca") == []
 
     def test_trade_date_is_the_eastern_session_date(self):
-        """A 09:30 ET bar is 13:30 UTC. Taking the UTC date would still be the
-        9th here, but an after-hours bar would roll to the next day."""
-        late = _frame([("2026-09-09 19:30:00", 1.0, 2.0, 0.5, 1.5, 100)])
-        assert _to_rows(late, 1)[0][3] == date(2026, 9, 9)
-
-    def test_zero_volume_bars_are_dropped(self):
-        """Same rule as the daily ETL: a printed price with nothing traded."""
-        mixed = _frame(
-            [
-                ("2026-09-09 09:30:00", 1.0, 2.0, 0.5, 1.5, 100),
-                ("2026-09-09 10:30:00", 1.5, 1.5, 1.5, 1.5, 0),
-            ]
-        )
-        rows = _to_rows(mixed, 1)
-        assert len(rows) == 1
-        assert rows[0][8] == 100
-
-    def test_volume_is_an_int(self):
-        assert isinstance(_to_rows(SESSION, 1)[0][8], int)
-
-    def test_empty_frame(self):
-        assert _to_rows(_frame([]), 1) == []
-
-    def test_bar_interval_is_labelled_on_every_row(self):
-        """Without it, a later 1m load would be indistinguishable from these."""
-        assert {r[2] for r in _to_rows(SESSION, 1)} == {BAR_INTERVAL}
-
-    def test_a_different_interval_can_be_labelled(self):
-        rows = _to_rows(SESSION, 1, bar_interval="1m")
-        assert {r[2] for r in rows} == {"1m"}
+        late = psi._fold_to_session_hours([_bar("15:30", 1, 2, 0.5, 1.5, 100)])
+        assert psi._to_rows(late, 1, "alpaca")[0][3] == date(2026, 9, 9)
 
 
-class TestExtractionWindow:
-    """Yahoo counts the intraday limit in trading days, so period="730d"
-    reaches ~1,065 calendar days. Every larger period returns nothing, and
-    "max" returns only 730 calendar days -- less. This is the most obtainable."""
+class _Resp:
+    def __init__(self, body, status=200):
+        self._body, self.status_code, self.text = body, status, str(body)
 
-    def test_period_is_the_maximum_that_works(self):
-        assert PERIOD == "730d"
-
-    def test_interval_is_hourly(self):
-        assert BAR_INTERVAL == "1h"
+    def json(self):
+        return self._body
 
 
-class TestIntradayTemplate:
+class _Session:
+    """Records requests and replays canned pages."""
+
+    def __init__(self, pages):
+        self.pages, self.calls = list(pages), []
+
+    def get(self, url, headers=None, params=None, timeout=None):
+        self.calls.append({"url": url, "headers": dict(headers), "params": dict(params)})
+        return self.pages.pop(0)
+
+
+NOW = datetime(2026, 9, 11, 12, 0, tzinfo=UTC)
+
+
+class TestFetchAlpacaBars:
+    def test_follows_every_page(self):
+        s = _Session([_Resp({"bars": [SESSION[2]], "next_page_token": "p2"}), _Resp({"bars": [SESSION[3]]})])
+        bars = psi._fetch_alpaca_bars("AAPL", ("k", "s"), now=NOW, session=s)
+        assert len(bars) == 2 and len(s.calls) == 2
+        assert s.calls[1]["params"]["page_token"] == "p2"
+
+    def test_never_asks_for_the_last_fifteen_minutes(self):
+        """The free tier answers 403 for SIP data less than 15 minutes old."""
+        s = _Session([_Resp({"bars": []})])
+        psi._fetch_alpaca_bars("AAPL", ("k", "s"), now=NOW, session=s)
+        end = datetime.strptime(s.calls[0]["params"]["end"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+        assert NOW - end >= psi.ALPACA_END_LAG
+        assert psi.ALPACA_END_LAG.total_seconds() > 15 * 60
+
+    def test_asks_for_the_right_shape(self):
+        s = _Session([_Resp({"bars": []})])
+        psi._fetch_alpaca_bars("AAPL", ("k", "s"), now=NOW, session=s)
+        p = s.calls[0]["params"]
+        assert p["timeframe"] == "30Min", "native 1Hour bars are cut on the clock"
+        assert p["feed"] == "sip", "IEX alone is ~2.5% of US volume"
+        assert p["adjustment"] == "all", "must match the daily series' adjustment"
+        assert p["start"].startswith("2016-01-01")
+
+    def test_sends_the_credentials_as_headers_not_params(self):
+        s = _Session([_Resp({"bars": []})])
+        psi._fetch_alpaca_bars("AAPL", ("KEY", "SECRET"), now=NOW, session=s)
+        assert s.calls[0]["headers"] == {"APCA-API-KEY-ID": "KEY", "APCA-API-SECRET-KEY": "SECRET"}
+        assert "KEY" not in str(s.calls[0]["params"]) and "SECRET" not in str(s.calls[0]["params"])
+
+    def test_an_error_status_raises_instead_of_returning_nothing(self):
+        """A silent empty result would look like a ticker with no history."""
+        s = _Session([_Resp({"message": "forbidden"}, status=403)])
+        with pytest.raises(RuntimeError, match="403"):
+            psi._fetch_alpaca_bars("AAPL", ("k", "s"), now=NOW, session=s)
+
+
+class TestCredentials:
+    def test_uses_alpaca_when_both_keys_are_set(self, monkeypatch):
+        monkeypatch.setenv("ALPACA_API_KEY", "k")
+        monkeypatch.setenv("ALPACA_API_SECRET", "s")
+        assert psi._alpaca_credentials() == ("k", "s")
+
+    @pytest.mark.parametrize("key,secret", [("", "s"), ("k", ""), ("", ""), ("  ", "s")])
+    def test_missing_or_blank_keys_mean_no_credentials(self, monkeypatch, key, secret):
+        monkeypatch.setenv("ALPACA_API_KEY", key)
+        monkeypatch.setenv("ALPACA_API_SECRET", secret)
+        assert psi._alpaca_credentials() is None
+
+
+class TestNoFallback:
+    """Yahoo's hourly prices are not dividend-adjusted, so they disagree with
+    the daily table for every dividend payer -- JPM by 5.4% in 2023. Without
+    keys the refresh must write nothing, rather than write that."""
+
+    def test_without_keys_it_writes_nothing_and_says_so(self, monkeypatch):
+        monkeypatch.delenv("ALPACA_API_KEY", raising=False)
+        monkeypatch.delenv("ALPACA_API_SECRET", raising=False)
+
+        def must_not_run(*a, **k):
+            raise AssertionError("nothing may be fetched or written without keys")
+
+        monkeypatch.setattr(psi, "get_db_connection", must_not_run)
+        monkeypatch.setattr(psi, "_fetch_alpaca_bars", must_not_run)
+        assert psi.populate_stock_price_intraday() is False
+
+    def test_the_loader_no_longer_imports_yahoo(self):
+        assert not hasattr(psi, "yf"), "the Yahoo hourly path is gone for a reason"
+        assert not hasattr(psi, "YAHOO_PERIOD")
+
+
+class TestTemplates:
     def test_conflict_target_includes_the_interval(self):
-        """Hourly and minute bars share a timestamp; only bar_interval
-        separates them. Leaving it out would make them overwrite each other."""
         assert "ON CONFLICT (ts, company_key, bar_interval)" in UPSERT_STOCK_PRICE_INTRADAY_SQL
+
+    def test_source_is_written_and_updated(self):
+        assert "source" in UPSERT_STOCK_PRICE_INTRADAY_SQL
+        assert "source = EXCLUDED.source" in UPSERT_STOCK_PRICE_INTRADAY_SQL
 
     def test_targets_the_intraday_table_not_the_daily_one(self):
         assert "INSERT INTO fact_stock_price_intraday" in UPSERT_STOCK_PRICE_INTRADAY_SQL
         assert "fact_stock_price_daily" not in UPSERT_STOCK_PRICE_INTRADAY_SQL
 
-    def test_carries_the_session_date(self):
-        assert "trade_date" in UPSERT_STOCK_PRICE_INTRADAY_SQL
+    def test_replacement_only_touches_one_ticker_and_one_interval(self):
+        sql = " ".join(psi.DELETE_OTHER_SOURCES_SQL.split())
+        assert "company_key = %s" in sql and "bar_interval = %s" in sql and "source <> %s" in sql

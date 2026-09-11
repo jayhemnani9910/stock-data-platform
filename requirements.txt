@@ -5,6 +5,9 @@ kafka-python==2.3.0
 psycopg2-binary==2.9.11
 edgartools==5.28.3
 fredapi==0.5.2
+# Imported directly for the Alpaca API. A floor, not a pin: the Airflow base
+# image ships its own requests and an exact pin would fight its constraints.
+requests>=2.31
 ruff==0.15.10
 pytest==8.3.5
 pytest-cov==6.1.1

@@ -32,6 +32,7 @@ Tracks the **full price history of 10 major US equities** (AAPL, AMZN, GOOG, MET
 | **yfinance** | Prices, company info, earnings | Python API |
 | **SEC EDGAR** | 10-K/10-Q financial statements | EdgarTools |
 | **FRED** | Fed funds rate, CPI, GDP, unemployment | fredapi |
+| **Alpaca** | Hourly price bars back to 2016 (free paper-trading account) | REST API |
 
 ---
 
@@ -78,7 +79,7 @@ The landing page features a Bloomberg-style ticker tape and architecture overvie
 | `dim_date` | Dimension | Year, quarter, month, day, weekend flag |
 | `dim_macro_indicator` | Dimension | FRED macro series metadata |
 | `fact_stock_price_daily` | Fact | OHLCV data per ticker per day, back to each ticker's first traded day |
-| `fact_stock_price_intraday` | Fact | Intraday OHLCV bars, labelled by `bar_interval` (hourly today); ~2.9 years, the most the source allows |
+| `fact_stock_price_intraday` | Fact | Hourly regular-session OHLCV bars back to 2016, labelled by `bar_interval` and `source` |
 | `fact_stock_price_monthly` | Fact | Aggregated monthly averages and total volume |
 | `fact_company_fundamentals` | Fact | Market cap, PE ratios, dividends, beta |
 | `fact_earnings` | Fact | Quarterly EPS: estimate vs actual, surprise % |
@@ -100,7 +101,7 @@ Built on **TimescaleDB** for time-series optimized queries on PostgreSQL 14.
 | `earnings_weekly` | Weekly | Fetch earnings dates and EPS surprises |
 | `sec_financials_quarterly` | Quarterly | Fetch SEC 10-K/10-Q financial statements |
 | `macro_daily` | Daily | Fetch FRED macro indicators |
-| `intraday_prices_daily` | Daily | Refresh hourly intraday bars |
+| `intraday_prices_daily` | Daily | Reload hourly bars from Alpaca (skipped if no keys are set) |
 | `monthly_aggregate_dag` | Monthly | Compute monthly price aggregations |
 | `csv_export_dag` | Triggered | Export last 30 days to CSV per ticker |
 | `populate_fundamentals` | On-demand | One-off fundamentals backfill |
@@ -126,7 +127,7 @@ That is 23 DAGs in total: 10 per-ticker ETL DAGs plus the 13 listed here.
 # Clone and configure
 git clone https://github.com/jayhemnani9910/stock-data-platform.git
 cd stock-data-platform
-cp .env.example .env    # Fill in your FRED_API_KEY and EDGAR_IDENTITY
+cp .env.example .env    # Fill in FRED_API_KEY, EDGAR_IDENTITY, and optionally ALPACA_API_KEY/SECRET
 
 # Start all 7 services
 docker compose up -d
@@ -173,7 +174,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── migrations/                # Re-runnable changes for a live volume
 │   └── aggregate_monthly.sql      # Monthly rollup query
 ├── tests/                         # Unit tests (pytest)
-│   └── unit/                      # 181 tests across 10 modules
+│   └── unit/                      # 199 tests across 10 modules
 ├── site/                          # GitHub Pages (landing page + dashboard)
 ├── docs/                          # Architecture diagrams (D2 format)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB
