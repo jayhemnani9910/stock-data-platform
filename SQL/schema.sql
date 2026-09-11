@@ -133,6 +133,9 @@ CREATE TABLE IF NOT EXISTS fact_stock_price_intraday (
     low DOUBLE PRECISION NOT NULL,
     close DOUBLE PRECISION NOT NULL,
     volume BIGINT NOT NULL,
+    -- Which provider produced the bar ('alpaca', 'yahoo'). Provenance, not
+    -- key: one load writes one provider over the whole window.
+    source TEXT NOT NULL,
     PRIMARY KEY (ts, company_key, bar_interval)
 );
 
