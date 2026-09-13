@@ -108,6 +108,27 @@ class TestDedupe:
     def test_empty_input(self):
         assert _dedupe([]) == []
 
+    def test_the_filings_own_period_beats_a_comparative_read_after_it(self):
+        """The 10-K is read before the 10-Q, whose balance sheet repeats the
+        fiscal year-end as a comparative. Keeping the last row replaced the
+        10-K's own dated row with that undated copy."""
+        own = _instant(date(2025, 9, 27), filing=(date(2025, 10, 31), "10-K"), source=(date(2025, 10, 31), "10-K"))
+        comparative = _instant(date(2025, 9, 27), filing=(None, None), source=(date(2026, 7, 31), "10-Q"))
+        (kept,) = _dedupe([own, comparative])
+        assert kept[8:10] == (date(2025, 10, 31), "10-K")
+
+    def test_between_comparatives_the_more_recent_filing_wins(self):
+        """Right after a 10-K is filed it is newer than the latest 10-Q, but
+        it is still read first."""
+        newer = _instant(date(2024, 9, 28), filing=(None, None), source=(date(2025, 10, 31), "10-K"))
+        older = _instant(date(2024, 9, 28), filing=(None, None), source=(date(2025, 8, 1), "10-Q"))
+        (kept,) = _dedupe([newer, older])
+        assert kept[10] == date(2025, 10, 31)
+
+
+def _instant(day, filing, source):
+    return (1, "balance_sheet", "Total assets", day, day, INSTANT, None, None, *filing, *source, 1.0)
+
 
 class _Item(dict):
     pass

@@ -23,8 +23,9 @@ _STAGE_MAX_AGE_SECONDS = 24 * 3600
 def _prune_stale_stage_files():
     """Drop staged files older than a day.
 
-    load_data removes the pair it consumed, but when extract succeeds and
-    transform fails nothing ever runs load, so the raw file is left behind.
+    load_data removes the pair once it has loaded them. A load that fails for
+    good keeps them, and when transform fails nothing ever runs load, so those
+    files are left behind.
     """
     cutoff = time.time() - _STAGE_MAX_AGE_SECONDS
     for path in Path(_BASE_DIR).glob("*.json.gz"):
@@ -253,10 +254,12 @@ def load_data(ticker, ti):
         print(f"Loaded {len(df)} rows for {ticker}")
     except Exception as e:
         raise Exception(f"Load Error [{ticker}]: {str(e)}") from e
-    finally:
-        for path in (raw_path, cleaned_path):
-            if path:
-                Path(path).unlink(missing_ok=True)
+
+    # Only once the load succeeded: an Airflow retry of this task reads the same
+    # staged files, so a failed load has to leave them for it.
+    for path in (raw_path, cleaned_path):
+        if path:
+            Path(path).unlink(missing_ok=True)
 
 
 def export_30_day_csvs():
@@ -270,7 +273,7 @@ def export_30_day_csvs():
             SELECT f.date, d.ticker, f.open, f.high, f.low, f.close, f.volume
             FROM fact_stock_price_daily f
             JOIN dim_company d ON f.company_key = d.company_key
-            WHERE d.ticker = ANY(%s) AND f.date BETWEEN %s AND %s
+            WHERE d.ticker = ANY(%s) AND d.is_current = TRUE AND f.date BETWEEN %s AND %s
             ORDER BY d.ticker, f.date DESC
         """
         df_all = pd.read_sql(query, conn, params=(list(TICKERS), start_date, end_date))

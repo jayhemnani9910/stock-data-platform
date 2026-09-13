@@ -7,7 +7,6 @@ plain checkout without Airflow.
 """
 
 import importlib
-import os
 
 import dag_config
 
@@ -74,6 +73,9 @@ class TestDefaultArgs:
 
 
 def teardown_module():
-    """Leave the module holding the repo's real ticker file for other tests."""
-    os.environ.pop("TICKERS_FILE", None)
+    """Leave the module holding the repo's real ticker file for other tests.
+
+    monkeypatch has already put TICKERS_FILE back to conftest's value, so a
+    reload is all it takes. Popping the variable here sent dag_config to the
+    /opt/airflow default instead."""
     importlib.reload(dag_config)

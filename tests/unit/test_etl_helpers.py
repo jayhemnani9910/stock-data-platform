@@ -10,6 +10,8 @@ time stubbed out. tests/unit/test_kafka_batch.py uses the same
 spec_from_file_location approach for the root-level Kafka scripts.
 """
 
+import contextlib
+import gzip
 import importlib.util
 import os
 import sys
@@ -330,3 +332,68 @@ class TestReadStaged:
     def test_values_survive(self, tmp_path):
         df = _etl._read_staged(self._stage(tmp_path, ["1962-01-02"]))
         assert df["close"].iloc[0] == 1.5 and df["volume"].iloc[0] == 10
+
+
+class _PullTi:
+    def __init__(self, paths):
+        self.paths = paths
+
+    def xcom_pull(self, key, task_ids):
+        return self.paths[key]
+
+
+class TestLoadKeepsItsInputForTheRetry:
+    """load_data deleted both staged files in `finally`. ETL_DEFAULT_ARGS
+    retries the task, and the retry pulled the same paths from XCom and died on
+    a missing file, so one transient database error failed the whole run."""
+
+    def _stage(self, tmp_path):
+        df = pd.DataFrame({c: [1.0] for c in STANDARD}, index=pd.to_datetime(["2026-09-09"]))
+        paths = {}
+        for key in ("raw_path", "cleaned_path"):
+            paths[key] = str(tmp_path / f"{key}.json.gz")
+            with gzip.open(paths[key], "wt", encoding="utf-8") as f:
+                df.to_json(f, orient="split")
+        return paths
+
+    def _load(self, monkeypatch, paths, upsert):
+        monkeypatch.setattr(_etl, "get_db_connection", lambda: contextlib.nullcontext(object()))
+        monkeypatch.setattr(_etl, "get_company_key", lambda conn, ticker: 1)
+        monkeypatch.setattr(_etl, "upsert_stock_prices", upsert)
+        _etl.load_data("AAPL", _PullTi(paths))
+
+    def test_a_failed_load_leaves_its_input_for_the_retry(self, tmp_path, monkeypatch):
+        paths = self._stage(tmp_path)
+
+        def db_down(conn, rows):
+            raise RuntimeError("server closed the connection unexpectedly")
+
+        with pytest.raises(Exception, match="Load Error"):
+            self._load(monkeypatch, paths, db_down)
+
+        loaded = []
+        self._load(monkeypatch, paths, lambda conn, rows: loaded.extend(rows))
+        assert [r[0] for r in loaded] == [date(2026, 9, 9)]
+
+    def test_a_successful_load_removes_its_input(self, tmp_path, monkeypatch):
+        paths = self._stage(tmp_path)
+        self._load(monkeypatch, paths, lambda conn, rows: None)
+        assert not any(os.path.exists(p) for p in paths.values())
+
+
+class TestCsvExportFiltersCurrentCompanies:
+    """dim_company is SCD Type 2. Every other ticker join filters is_current;
+    without it a ticker's CSV would mix in the facts of a retired version."""
+
+    def test_the_query_filters_current_companies(self, monkeypatch):
+        seen = {}
+
+        def read_sql(query, conn, params):
+            seen["sql"] = " ".join(query.split())
+            return pd.DataFrame(columns=["ticker"])
+
+        monkeypatch.setattr(_etl, "get_db_connection", lambda: contextlib.nullcontext(object()))
+        monkeypatch.setattr(_etl.pd, "read_sql", read_sql)
+        monkeypatch.setattr(_etl.os, "makedirs", lambda *a, **k: None)
+        _etl.export_30_day_csvs()
+        assert "d.is_current" in seen["sql"]
