@@ -188,11 +188,24 @@ def _dedupe(rows):
     execute_values sends the batch as one INSERT, and Postgres rejects a
     statement whose rows hit the conflict target twice. The key must match the
     table's: dropping period_start from it is what let a quarter and a
-    year-to-date figure overwrite each other. The 10-K is read before the 10-Q,
-    so on a genuine tie the more recent filing wins.
+    year-to-date figure overwrite each other.
+
+    On a collision the filing reporting on that period wins, then the more
+    recent filing. Read order cannot decide it: the 10-K is read before the
+    10-Q, whose balance sheet repeats the fiscal year-end as a comparative with
+    NULL filing metadata, and keeping the last row let that replace the 10-K's
+    own dated row.
     """
     seen = {}
     for row in rows:
         # (company_key, statement_type, line_item, period_start, period_end)
-        seen[(row[0], row[1], row[2], row[3], row[4])] = row
+        key = (row[0], row[1], row[2], row[3], row[4])
+        if key not in seen or _precedence(row) >= _precedence(seen[key]):
+            seen[key] = row
     return list(seen.values())
+
+
+def _precedence(row):
+    # filing_date is set only on the filing's own period. source_filing_date
+    # may be a date or an ISO string; str() sorts both the same way.
+    return row[8] is not None, str(row[10])

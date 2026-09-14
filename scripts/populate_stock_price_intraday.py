@@ -201,6 +201,9 @@ def populate_stock_price_intraday():
                 first = min(r[3] for r in rows) if rows else date.today()
                 print(f"  {ticker}: {len(rows)} {BAR_INTERVAL} bars from {source}, since {first}")
             except Exception as e:
+                # A failed statement aborts the transaction, and every later
+                # ticker's get_company_key would fail on the same connection.
+                conn.rollback()
                 print(f"Error fetching intraday for {ticker}: {e}")
 
     print(f"Intraday prices updated: {total} {BAR_INTERVAL} bars across {len(tickers)} tickers")

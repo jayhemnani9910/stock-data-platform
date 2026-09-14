@@ -217,3 +217,73 @@ class TestTemplates:
     def test_replacement_only_touches_one_ticker_and_one_interval(self):
         sql = " ".join(psi.DELETE_OTHER_SOURCES_SQL.split())
         assert "company_key = %s" in sql and "bar_interval = %s" in sql and "source <> %s" in sql
+
+
+class _AbortingConn:
+    """Postgres after a failed statement: the connection refuses everything
+    until it is rolled back."""
+
+    def __init__(self):
+        self.aborted, self.rollbacks = False, 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def rollback(self):
+        self.aborted, self.rollbacks = False, self.rollbacks + 1
+
+    def commit(self):
+        pass
+
+    def cursor(self):
+        return _NoopCursor()
+
+
+class _NoopCursor:
+    rowcount = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, sql, params):
+        pass
+
+
+class TestOneTickerFailing:
+    """Per-ticker loads are meant to keep a late failure from discarding the
+    tickers that worked. Without a rollback the failed statement left the
+    transaction aborted, and the next ticker's get_company_key ended the run."""
+
+    def test_the_next_ticker_still_loads(self, tmp_path, monkeypatch):
+        tickers = tmp_path / "tickers.txt"
+        tickers.write_text("AAPL\nMSFT\n")
+        conn, loaded = _AbortingConn(), []
+
+        def company_key(c, ticker):
+            if c.aborted:
+                raise RuntimeError("current transaction is aborted")
+            return {"AAPL": 1, "MSFT": 2}[ticker]
+
+        def insert(c, sql, rows):
+            if rows[0][1] == 1:
+                c.aborted = True
+                raise RuntimeError("deadlock detected")
+            loaded.append(rows[0][1])
+
+        monkeypatch.setenv("ALPACA_API_KEY", "k")
+        monkeypatch.setenv("ALPACA_API_SECRET", "s")
+        monkeypatch.setattr(psi, "TICKERS_FILE", str(tickers))
+        monkeypatch.setattr(psi, "get_db_connection", lambda: conn)
+        monkeypatch.setattr(psi, "get_company_key", company_key)
+        monkeypatch.setattr(psi, "_fetch_alpaca_bars", lambda ticker, credentials: SESSION)
+        monkeypatch.setattr(psi, "batch_insert", insert)
+
+        assert psi.populate_stock_price_intraday() is True
+        assert loaded == [2]
+        assert conn.rollbacks == 1

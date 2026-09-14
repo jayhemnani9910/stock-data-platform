@@ -37,3 +37,7 @@ CLAUDE.md
 # OS files
 .DS_Store
 Thumbs.db
+
+# /audit outputs
+graphify-out/
+.audit/
