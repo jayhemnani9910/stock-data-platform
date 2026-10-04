@@ -336,3 +336,31 @@ class TestSigtermDrain:
         assert len(flushed) == 1, "the buffered tick must reach the database"
         assert consumer.commits == 1, "and its offset must be committed"
         assert consumer.closed
+
+
+class TestDatabaseOutageOnShutdown:
+    """A DB outage longer than connect_db's retries raises out of the final
+    flush. consumer.close() used to sit after it and never ran, so the process
+    died without leaving the consumer group."""
+
+    def test_the_consumer_is_still_closed(self, monkeypatch):
+        conns = []
+
+        def connect():
+            if conns:
+                raise ConnectionError("Failed to connect to TimescaleDB after 10 attempts")
+            conns.append(_RecordingConn())
+            return conns[0]
+
+        def upsert_fails(conn, rows):
+            raise RuntimeError("server closed the connection unexpectedly")
+
+        consumer = _ShutdownConsumer()
+        monkeypatch.setattr(_kp, "connect_db", connect)
+        monkeypatch.setattr(_kp, "upsert_streaming_prices", upsert_fails)
+        monkeypatch.setattr(_kp, "_connect_kafka", lambda: consumer)
+
+        with pytest.raises(ConnectionError):
+            _kp.main()
+        assert consumer.closed
+        assert consumer.commits == 0, "the failed batch must be redelivered"

@@ -186,17 +186,22 @@ def main():
     except (_Shutdown, KeyboardInterrupt) as e:
         print(f"Shutting down: {e}")
     finally:
-        if batch:
-            # _flush_batch, not a bare upsert: the final batch needs the same
-            # collapsing as every other one. Without it a shutdown batch
-            # spanning two produce cycles hit "ON CONFLICT DO UPDATE command
-            # cannot affect row a second time" and was thrown away.
-            print(f"Shutting down with {len(batch)} buffered messages")
-            conn, ok = _flush_batch(conn, batch)
-            if ok:
-                _commit_offsets(consumer)
-        consumer.close()
-        conn.close()
+        try:
+            if batch:
+                # _flush_batch, not a bare upsert: the final batch needs the same
+                # collapsing as every other one. Without it a shutdown batch
+                # spanning two produce cycles hit "ON CONFLICT DO UPDATE command
+                # cannot affect row a second time" and was thrown away.
+                print(f"Shutting down with {len(batch)} buffered messages")
+                conn, ok = _flush_batch(conn, batch)
+                if ok:
+                    _commit_offsets(consumer)
+        finally:
+            # A DB outage that outlasts connect_db's retries raises out of the
+            # flush. Leave the group cleanly anyway; the uncommitted batch is
+            # redelivered when the container restarts.
+            consumer.close()
+            conn.close()
 
 
 if __name__ == "__main__":
