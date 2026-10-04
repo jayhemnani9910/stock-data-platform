@@ -1,4 +1,4 @@
-"""Tests for live_from_kafka.py — _load_tickers(), _is_market_open(), _day_bar_from_intraday().
+"""Tests for live_from_kafka.py — _load_tickers(), _is_market_open(), _day_bar_from_intraday(), _fetch_ticker_data().
 
 These used to run against local copies, so the real MARKET_OPEN could be moved
 to 03:30 without a single failure. They import the module now.
@@ -162,3 +162,27 @@ class TestDayBarFromIntraday:
         row with no trades in it."""
         bar = _frame([("09:30", 100, 100, 100, 100, 0), ("09:31", 100, 100, 100, 100, 0)])
         assert lfk._day_bar_from_intraday(bar) is None
+
+
+class _History:
+    def __init__(self, frame):
+        self.frame = frame
+
+    def history(self, period, interval):
+        return self.frame
+
+
+class TestFetchTickerData:
+    """_is_market_open knows no holidays. On one, yfinance's "1d" is the last
+    session, and publishing it overwrote that day's close with a minute bar's."""
+
+    def test_a_previous_session_is_not_published(self):
+        stale = _frame([("09:30", 100, 101, 99, 100.5, 500)])
+        assert lfk._fetch_ticker_data(_History(stale), "AAPL") == ("AAPL", None)
+
+    def test_todays_session_is_published(self):
+        today = datetime.now(lfk.ET).date().isoformat()
+        bar = _frame([("09:30", 100, 101, 99, 100.5, 500)])
+        bar.index = pd.to_datetime([f"{today} 09:30"]).tz_localize(lfk.ET)
+        _, payload = lfk._fetch_ticker_data(_History(bar), "AAPL")
+        assert payload["date"] == today

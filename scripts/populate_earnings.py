@@ -36,9 +36,9 @@ def populate_earnings():
                         (
                             report_date.date(),
                             company_key,
-                            row.get("EPS Estimate") if not pd.isna(row.get("EPS Estimate")) else None,
+                            float(row.get("EPS Estimate")) if not pd.isna(row.get("EPS Estimate")) else None,
                             float(eps_actual),
-                            row.get("Surprise(%)") if not pd.isna(row.get("Surprise(%)")) else None,
+                            float(row.get("Surprise(%)")) if not pd.isna(row.get("Surprise(%)")) else None,
                         )
                     )
             except Exception as e:

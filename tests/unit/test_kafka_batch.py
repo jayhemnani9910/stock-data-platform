@@ -243,17 +243,8 @@ class TestSigtermDrain:
         try:
             handler = signal.getsignal(signal.SIGTERM)
             assert callable(handler), "SIGTERM must not be left at its default"
-            ran = []
-            try:
-                try:
-                    handler(signal.SIGTERM, None)
-                except (_kp._Shutdown, KeyboardInterrupt):
-                    pass
-                finally:
-                    ran.append(True)
-            finally:
-                pass
-            assert ran == [True]
+            with pytest.raises(_kp._Shutdown):
+                handler(signal.SIGTERM, None)
         finally:
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
@@ -293,10 +284,8 @@ class TestSigtermDrain:
         try:
             _kp._install_shutdown_handler()
             installed = signal.getsignal(signal.SIGTERM)
-            try:
+            with pytest.raises(_kp._Shutdown):
                 installed(signal.SIGTERM, None)
-            except _kp._Shutdown:
-                pass
             assert signal.getsignal(signal.SIGTERM) is signal.SIG_DFL
         finally:
             signal.signal(signal.SIGTERM, signal.SIG_DFL)

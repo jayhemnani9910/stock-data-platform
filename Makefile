@@ -28,12 +28,12 @@ lint:
 
 # SQL/schema.sql only runs on a first container init, so schema changes reach a
 # live volume through here. Every migration is idempotent -- re-running the set
-# is a no-op.
+# is a no-op. The user and database come from the container's own env, the
+# names it was initialised with, so .env needs no sourcing here.
 migrate:
 	@set -e; for f in SQL/migrations/*.sql; do \
 		echo "applying $$f"; \
-		docker exec -i timescaledb psql -v ON_ERROR_STOP=1 \
-			-U "$${DB_USER:-data226}" -d "$${DB_NAME:-stockdw}" < "$$f"; \
+		docker exec -i timescaledb sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < "$$f"; \
 	done
 
 # Rewrites site/data/*.json from the warehouse. Those files are tracked because

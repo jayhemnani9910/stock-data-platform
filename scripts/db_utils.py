@@ -10,7 +10,7 @@ BACKOFF_BASE = 5
 BACKOFF_CAP = 60
 
 
-def connect_db(retries=True, max_retries=MAX_RETRIES):
+def connect_db():
     params = {
         "host": os.environ["DB_HOST"],
         "dbname": os.environ["DB_NAME"],
@@ -18,25 +18,22 @@ def connect_db(retries=True, max_retries=MAX_RETRIES):
         "password": os.environ["DB_PASSWORD"],
         "port": int(os.environ.get("DB_PORT", 5432)),
     }
-    if not retries:
-        return psycopg2.connect(**params)
-
-    for attempt in range(1, max_retries + 1):
+    for attempt in range(1, MAX_RETRIES + 1):
         try:
             conn = psycopg2.connect(**params)
             print("Connected to TimescaleDB.")
             return conn
         except Exception as e:
             delay = min(BACKOFF_BASE * (2 ** (attempt - 1)), BACKOFF_CAP)
-            print(f"DB connection attempt {attempt}/{max_retries} failed: {e}. Retrying in {delay}s...")
+            print(f"DB connection attempt {attempt}/{MAX_RETRIES} failed: {e}. Retrying in {delay}s...")
             time.sleep(delay)
-    raise ConnectionError(f"Failed to connect to TimescaleDB after {max_retries} attempts")
+    raise ConnectionError(f"Failed to connect to TimescaleDB after {MAX_RETRIES} attempts")
 
 
 @contextmanager
-def get_db_connection(retries=True):
+def get_db_connection():
     """Context manager that properly closes the connection on exit."""
-    conn = connect_db(retries=retries)
+    conn = connect_db()
     try:
         yield conn
     finally:
@@ -133,6 +130,9 @@ UPSERT_EARNINGS_SQL = """
         surprise_pct = EXCLUDED.surprise_pct
 """
 
+# Each run reads only the latest 10-K and 10-Q, so an older filing's own period
+# comes back later only as a comparative, with its filing metadata NULL. Keep
+# what the period's own filing said rather than erasing it.
 UPSERT_SEC_FINANCIALS_SQL = """
     INSERT INTO fact_sec_financials
         (company_key, statement_type, line_item, period_start, period_end, period_type,
@@ -141,10 +141,10 @@ UPSERT_SEC_FINANCIALS_SQL = """
     VALUES %s
     ON CONFLICT (company_key, statement_type, line_item, period_start, period_end) DO UPDATE
     SET period_type = EXCLUDED.period_type,
-        fiscal_year = EXCLUDED.fiscal_year,
-        fiscal_period = EXCLUDED.fiscal_period,
-        filing_date = EXCLUDED.filing_date,
-        filing_type = EXCLUDED.filing_type,
+        fiscal_year = COALESCE(EXCLUDED.fiscal_year, fact_sec_financials.fiscal_year),
+        fiscal_period = COALESCE(EXCLUDED.fiscal_period, fact_sec_financials.fiscal_period),
+        filing_date = COALESCE(EXCLUDED.filing_date, fact_sec_financials.filing_date),
+        filing_type = COALESCE(EXCLUDED.filing_type, fact_sec_financials.filing_type),
         source_filing_date = EXCLUDED.source_filing_date,
         source_filing_type = EXCLUDED.source_filing_type,
         value = EXCLUDED.value

@@ -71,10 +71,7 @@ def _normalize_columns(df, ticker):
         elif std_name in df.columns:
             col_map[std_name] = std_name.lower()
 
-    if "Adj Close" in df.columns:
-        df = df.drop(columns=["Adj Close"], errors="ignore")
-    if f"Adj Close_{ticker}" in df.columns:
-        df = df.drop(columns=[f"Adj Close_{ticker}"], errors="ignore")
+    df = df.drop(columns=["Adj Close", f"Adj Close_{ticker}"], errors="ignore")
 
     df = df.rename(columns=col_map)
     return df

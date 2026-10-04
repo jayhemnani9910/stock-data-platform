@@ -287,3 +287,25 @@ class TestOneTickerFailing:
         assert psi.populate_stock_price_intraday() is True
         assert loaded == [2]
         assert conn.rollbacks == 1
+
+
+class TestEveryTickerFailing:
+    """Bad keys or an Alpaca outage fail every ticker. The run used to return
+    True anyway, so the DAG went green having written nothing."""
+
+    def test_the_run_fails(self, tmp_path, monkeypatch):
+        tickers = tmp_path / "tickers.txt"
+        tickers.write_text("AAPL\nMSFT\n")
+
+        def refused(ticker, credentials):
+            raise RuntimeError("Alpaca 401: unauthorized")
+
+        monkeypatch.setenv("ALPACA_API_KEY", "k")
+        monkeypatch.setenv("ALPACA_API_SECRET", "s")
+        monkeypatch.setattr(psi, "TICKERS_FILE", str(tickers))
+        monkeypatch.setattr(psi, "get_db_connection", lambda: _AbortingConn())
+        monkeypatch.setattr(psi, "get_company_key", lambda c, ticker: {"AAPL": 1, "MSFT": 2}[ticker])
+        monkeypatch.setattr(psi, "_fetch_alpaca_bars", refused)
+
+        with pytest.raises(RuntimeError, match="AAPL, MSFT"):
+            psi.populate_stock_price_intraday()

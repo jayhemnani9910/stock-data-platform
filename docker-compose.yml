@@ -106,8 +106,6 @@ services:
       timeout: 10s
       retries: 10
       start_period: 60s
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   airflow-scheduler:
     build:
@@ -134,8 +132,6 @@ services:
       timeout: 15s
       retries: 10
       start_period: 90s
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0

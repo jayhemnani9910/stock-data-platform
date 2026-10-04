@@ -42,7 +42,7 @@ of replacing it, so both ports get published and the bind still fails.
     docker compose up -d
 
 `airflow` and `stockdw` are separate databases on the same server: Airflow's
-run history and users are in `airflow`, and `stockdw` holds only the nine
+run history and users are in `airflow`, and `stockdw` holds only the ten
 star-schema tables. A volume created before that split has 42 Airflow tables
 sitting in `stockdw.public`; `CREATE DATABASE airflow` and restart, and Airflow
 rebuilds its own schema (past run history does not carry over).
@@ -63,7 +63,7 @@ On a first run, the dimension DAGs must go first: `populate_dim_company`, then
 
     pytest tests/ -q
 
-202 unit tests, no database or network needed. This is what CI runs, along with
+213 unit tests, no database or network needed. This is what CI runs, along with
 `ruff check .` and `ruff format --check .`.
 
 They import the real production functions. They used to run against copies, and

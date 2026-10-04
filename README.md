@@ -61,7 +61,7 @@ The landing page features a Bloomberg-style ticker tape and architecture overvie
 
 | Service | Image | Port | Role |
 |---------|-------|------|------|
-| `timescaledb` | timescale/timescaledb:latest-pg14 | 5434 | Star-schema warehouse |
+| `timescaledb` | timescale/timescaledb:2.19.3-pg14 | 5434 | Star-schema warehouse |
 | `airflow-webserver` | Custom (Dockerfile.airflow) | 8081 | DAG monitoring UI |
 | `airflow-scheduler` | Custom (Dockerfile.airflow) | — | DAG execution engine |
 | `zookeeper` | confluentinc/cp-zookeeper | 2181 | Kafka coordination |
@@ -96,7 +96,7 @@ Built on **TimescaleDB** for time-series optimized queries on PostgreSQL 14.
 |-----|----------|---------|
 | `etl_stock_data_<ticker>` | Daily | Per-ticker ETL (one DAG per ticker); first run loads the ticker's full history |
 | `populate_dim_company` | On-demand | Load company dimension table |
-| `populate_dim_date` | On-demand | Generate date dimension (1990-2035) |
+| `populate_dim_date` | On-demand | Generate date dimension (1945-2050) |
 | `fundamentals_daily` | Daily | Fetch company fundamentals |
 | `earnings_weekly` | Weekly | Fetch earnings dates and EPS surprises |
 | `sec_financials_quarterly` | Quarterly | Fetch SEC 10-K/10-Q financial statements |
@@ -174,7 +174,7 @@ docker exec -it timescaledb psql -U data226 -d stockdw \
 │   ├── migrations/                # Re-runnable changes for a live volume
 │   └── aggregate_monthly.sql      # Monthly rollup query
 ├── tests/                         # Unit tests (pytest)
-│   └── unit/                      # 202 tests across 10 modules
+│   └── unit/                      # 213 tests across 11 modules
 ├── site/                          # GitHub Pages (landing page + dashboard)
 ├── docs/                          # Architecture diagrams (D2 format)
 ├── kafka_to_postgres.py           # Kafka consumer → TimescaleDB
