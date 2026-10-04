@@ -10,8 +10,7 @@ from db_utils import (
     get_company_key,
     get_db_connection,
 )
-
-TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
+from tickers import load_tickers
 
 # After a successful Alpaca load, the ticker's bars from any other provider go.
 # A volume first loaded by the old Yahoo hourly loader still holds those rows,
@@ -24,6 +23,7 @@ DELETE_OTHER_SOURCES_SQL = """
 
 ET = ZoneInfo("America/New_York")
 BAR_INTERVAL = "1h"
+SOURCE = "alpaca"
 SESSION_OPEN = time(9, 30)
 SESSION_CLOSE = time(16, 0)
 
@@ -171,40 +171,44 @@ def populate_stock_price_intraday():
         )
         return False
 
-    with open(TICKERS_FILE) as f:
-        tickers = [line.strip() for line in f if line.strip()]
+    tickers = load_tickers()
 
     total = 0
+    attempted, failed = 0, []
     with get_db_connection() as conn:
         for ticker in tickers:
             company_key = get_company_key(conn, ticker)
             if not company_key:
                 print(f"Skipping {ticker}: not in dim_company")
                 continue
+            attempted += 1
             try:
-                history, source = _fold_to_session_hours(_fetch_alpaca_bars(ticker, credentials)), "alpaca"
+                history = _fold_to_session_hours(_fetch_alpaca_bars(ticker, credentials))
                 if history.empty:
                     print(f"  {ticker}: no intraday data returned")
                     continue
-                rows = _to_rows(history, company_key, source)
+                rows = _to_rows(history, company_key, SOURCE)
                 if rows:
                     # Per ticker, not one batch at the end: a failure late in
                     # the loop should not discard the tickers that worked.
                     batch_insert(conn, UPSERT_STOCK_PRICE_INTRADAY_SQL, rows)
                     total += len(rows)
-                    if source == "alpaca":
-                        with conn.cursor() as cur:
-                            cur.execute(DELETE_OTHER_SOURCES_SQL, (company_key, BAR_INTERVAL, source))
-                            if cur.rowcount:
-                                print(f"  {ticker}: replaced {cur.rowcount} bars from other sources")
-                        conn.commit()
+                    with conn.cursor() as cur:
+                        cur.execute(DELETE_OTHER_SOURCES_SQL, (company_key, BAR_INTERVAL, SOURCE))
+                        if cur.rowcount:
+                            print(f"  {ticker}: replaced {cur.rowcount} bars from other sources")
+                    conn.commit()
                 first = min(r[3] for r in rows) if rows else date.today()
-                print(f"  {ticker}: {len(rows)} {BAR_INTERVAL} bars from {source}, since {first}")
+                print(f"  {ticker}: {len(rows)} {BAR_INTERVAL} bars from {SOURCE}, since {first}")
             except Exception as e:
                 # A failed statement aborts the transaction, and every later
                 # ticker's get_company_key would fail on the same connection.
                 conn.rollback()
+                failed.append(ticker)
                 print(f"Error fetching intraday for {ticker}: {e}")
 
     print(f"Intraday prices updated: {total} {BAR_INTERVAL} bars across {len(tickers)} tickers")
+    # Every ticker failing (bad keys, Alpaca down) must not end the run green.
+    if attempted and len(failed) == attempted:
+        raise RuntimeError(f"Intraday load failed for every ticker: {', '.join(failed)}")
     return True

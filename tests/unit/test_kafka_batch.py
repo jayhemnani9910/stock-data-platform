@@ -243,17 +243,8 @@ class TestSigtermDrain:
         try:
             handler = signal.getsignal(signal.SIGTERM)
             assert callable(handler), "SIGTERM must not be left at its default"
-            ran = []
-            try:
-                try:
-                    handler(signal.SIGTERM, None)
-                except (_kp._Shutdown, KeyboardInterrupt):
-                    pass
-                finally:
-                    ran.append(True)
-            finally:
-                pass
-            assert ran == [True]
+            with pytest.raises(_kp._Shutdown):
+                handler(signal.SIGTERM, None)
         finally:
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
@@ -293,10 +284,8 @@ class TestSigtermDrain:
         try:
             _kp._install_shutdown_handler()
             installed = signal.getsignal(signal.SIGTERM)
-            try:
+            with pytest.raises(_kp._Shutdown):
                 installed(signal.SIGTERM, None)
-            except _kp._Shutdown:
-                pass
             assert signal.getsignal(signal.SIGTERM) is signal.SIG_DFL
         finally:
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
@@ -347,3 +336,31 @@ class TestSigtermDrain:
         assert len(flushed) == 1, "the buffered tick must reach the database"
         assert consumer.commits == 1, "and its offset must be committed"
         assert consumer.closed
+
+
+class TestDatabaseOutageOnShutdown:
+    """A DB outage longer than connect_db's retries raises out of the final
+    flush. consumer.close() used to sit after it and never ran, so the process
+    died without leaving the consumer group."""
+
+    def test_the_consumer_is_still_closed(self, monkeypatch):
+        conns = []
+
+        def connect():
+            if conns:
+                raise ConnectionError("Failed to connect to TimescaleDB after 10 attempts")
+            conns.append(_RecordingConn())
+            return conns[0]
+
+        def upsert_fails(conn, rows):
+            raise RuntimeError("server closed the connection unexpectedly")
+
+        consumer = _ShutdownConsumer()
+        monkeypatch.setattr(_kp, "connect_db", connect)
+        monkeypatch.setattr(_kp, "upsert_streaming_prices", upsert_fails)
+        monkeypatch.setattr(_kp, "_connect_kafka", lambda: consumer)
+
+        with pytest.raises(ConnectionError):
+            _kp.main()
+        assert consumer.closed
+        assert consumer.commits == 0, "the failed batch must be redelivered"

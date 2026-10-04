@@ -37,6 +37,10 @@ class TestClean:
     def test_string_unchanged(self):
         assert _clean("hello") == "hello"
 
+    def test_date_becomes_iso_string(self):
+        """Every export's date column goes through here; JSON has no date type."""
+        assert _clean(date(2026, 9, 10)) == "2026-09-10"
+
 
 class TestSerialize:
     def test_single_row(self):

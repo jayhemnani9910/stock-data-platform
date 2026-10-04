@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS fact_stock_price_daily (
 
 CREATE TABLE IF NOT EXISTS fact_stock_price_monthly (
     company_key INT NOT NULL REFERENCES dim_company(company_key),
-    month DATE NOT NULL,
+    month DATE NOT NULL REFERENCES dim_date(date),
     avg_open DOUBLE PRECISION NOT NULL,
     avg_close DOUBLE PRECISION NOT NULL,
     avg_high DOUBLE PRECISION NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS fact_stock_price_monthly (
 );
 
 CREATE TABLE IF NOT EXISTS fact_company_fundamentals (
-    date DATE NOT NULL,
+    date DATE NOT NULL REFERENCES dim_date(date),
     company_key INT NOT NULL REFERENCES dim_company(company_key),
     market_cap BIGINT,
     trailing_pe DOUBLE PRECISION,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS fact_company_fundamentals (
 );
 
 CREATE TABLE IF NOT EXISTS fact_earnings (
-    report_date DATE NOT NULL,
+    report_date DATE NOT NULL REFERENCES dim_date(date),
     company_key INT NOT NULL REFERENCES dim_company(company_key),
     eps_estimate DOUBLE PRECISION,
     eps_actual DOUBLE PRECISION,

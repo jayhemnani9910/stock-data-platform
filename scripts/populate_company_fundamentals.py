@@ -1,4 +1,3 @@
-import os
 from datetime import date
 
 import yfinance as yf
@@ -8,8 +7,7 @@ from db_utils import (
     get_company_key,
     get_db_connection,
 )
-
-TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
+from tickers import load_tickers
 
 INFO_FIELDS = [
     "marketCap",
@@ -27,8 +25,7 @@ INFO_FIELDS = [
 
 
 def populate_company_fundamentals():
-    with open(TICKERS_FILE) as f:
-        tickers = [line.strip() for line in f if line.strip()]
+    tickers = load_tickers()
 
     today = date.today()
     rows = []

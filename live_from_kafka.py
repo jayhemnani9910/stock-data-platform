@@ -95,11 +95,18 @@ def _fetch_ticker_data(ticker_obj, ticker):
     # "5m" is an interval, not a period, and silently returned an empty frame
     # for every ticker on every cycle, so nothing was ever produced.
     data = ticker_obj.history(period="1d", interval="1m")
-    return ticker, _day_bar_from_intraday(data)
+    payload = _day_bar_from_intraday(data)
+    # _is_market_open knows no holidays. On one, "1d" is the previous session,
+    # and republishing it would overwrite that day's close with a minute bar's.
+    if payload and payload["date"] != datetime.now(ET).date().isoformat():
+        return ticker, None
+    return ticker, payload
 
 
 def main():
     tickers = _load_tickers()
+    if not tickers:
+        raise SystemExit("STOCK_TICKERS is empty; nothing to produce")
     print(f"Producing for {len(tickers)} tickers: {', '.join(tickers)}")
 
     for attempt in range(1, MAX_RETRIES + 1):

@@ -136,6 +136,13 @@ class TestSecFinancialsTemplate:
     def test_updates_value_on_conflict(self):
         assert "value = EXCLUDED.value" in UPSERT_SEC_FINANCIALS_SQL
 
+    def test_a_comparative_keeps_the_own_filing_metadata(self):
+        """Each run reads only the latest filings, so an older period returns
+        only as a comparative with NULL metadata. Overwriting with EXCLUDED
+        erased what its own filing had said."""
+        for col in ("fiscal_year", "fiscal_period", "filing_date", "filing_type"):
+            assert f"{col} = COALESCE(EXCLUDED.{col}, fact_sec_financials.{col})" in UPSERT_SEC_FINANCIALS_SQL
+
 
 class TestCompanyTemplate:
     """This template lived in populate_dim_company.py — the only UPSERT_*_SQL
