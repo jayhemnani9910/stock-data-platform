@@ -11,9 +11,11 @@ OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "site", "data")
 
 
 def _clean(val):
-    """Replace NaN/Inf with None for valid JSON."""
+    """Replace NaN/Inf with None for valid JSON, and dates with ISO strings."""
     if val is None:
         return None
+    if isinstance(val, date):
+        return str(val)
     if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
         return None
     return val
@@ -37,10 +39,7 @@ def export_price_summary(conn):
             (start,),
         )
         rows = cur.fetchall()
-    data = _serialize(rows, ["ticker", "date", "open", "high", "low", "close", "volume"])
-    for r in data:
-        r["date"] = str(r["date"])
-    return data
+    return _serialize(rows, ["ticker", "date", "open", "high", "low", "close", "volume"])
 
 
 def export_fundamentals(conn):
@@ -58,7 +57,7 @@ def export_fundamentals(conn):
             ORDER BY d.ticker, f.date DESC
         """)
         rows = cur.fetchall()
-    data = _serialize(
+    return _serialize(
         rows,
         [
             "ticker",
@@ -73,9 +72,6 @@ def export_fundamentals(conn):
             "week_52_low",
         ],
     )
-    for r in data:
-        r["date"] = str(r["date"])
-    return data
 
 
 def export_earnings(conn):
@@ -94,10 +90,7 @@ def export_earnings(conn):
             ORDER BY d.ticker, f.report_date DESC
         """)
         rows = cur.fetchall()
-    data = _serialize(rows, ["ticker", "report_date", "eps_estimate", "eps_actual", "surprise_pct"])
-    for r in data:
-        r["report_date"] = str(r["report_date"])
-    return data
+    return _serialize(rows, ["ticker", "report_date", "eps_estimate", "eps_actual", "surprise_pct"])
 
 
 def export_macro(conn):
@@ -110,10 +103,7 @@ def export_macro(conn):
             ORDER BY m.series_id, f.date
         """)
         rows = cur.fetchall()
-    data = _serialize(rows, ["series_id", "name", "date", "value"])
-    for r in data:
-        r["date"] = str(r["date"])
-    return data
+    return _serialize(rows, ["series_id", "name", "date", "value"])
 
 
 # Which field carries each dataset's own timestamp, for the snapshot stamp.
