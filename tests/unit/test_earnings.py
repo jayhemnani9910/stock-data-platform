@@ -33,7 +33,7 @@ class TestPopulateEarnings:
                 return frame
 
         captured = []
-        monkeypatch.setattr(pe, "TICKERS_FILE", str(tickers))
+        monkeypatch.setenv("TICKERS_FILE", str(tickers))
         monkeypatch.setattr(pe, "get_db_connection", lambda: contextlib.nullcontext(object()))
         monkeypatch.setattr(pe, "get_company_key", lambda conn, ticker: 1)
         monkeypatch.setattr(pe.yf, "Ticker", _Ticker)

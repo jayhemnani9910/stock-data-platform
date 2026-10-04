@@ -1,5 +1,3 @@
-import os
-
 import pandas as pd
 import yfinance as yf
 from db_utils import (
@@ -8,13 +6,11 @@ from db_utils import (
     get_company_key,
     get_db_connection,
 )
-
-TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
+from tickers import load_tickers
 
 
 def populate_earnings():
-    with open(TICKERS_FILE) as f:
-        tickers = [line.strip() for line in f if line.strip()]
+    tickers = load_tickers()
 
     rows = []
 

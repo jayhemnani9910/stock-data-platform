@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
+import tickers  # noqa: E402
+
 DEFAULT_ARGS = {
     "owner": "airflow",
     "start_date": datetime(2024, 1, 1),
@@ -21,5 +23,4 @@ TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
 
 
 def load_tickers():
-    with open(TICKERS_FILE) as f:
-        return [line.strip() for line in f if line.strip()]
+    return tickers.load_tickers(TICKERS_FILE)

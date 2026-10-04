@@ -9,8 +9,7 @@ from db_utils import (
     get_db_connection,
 )
 from edgar import Company, set_identity
-
-TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
+from tickers import load_tickers
 
 STATEMENT_TYPES = {
     "IncomeStatement": "income",
@@ -139,8 +138,7 @@ def populate_sec_financials():
     identity = os.environ.get("EDGAR_IDENTITY", "StockDataPlatform user@example.com")
     set_identity(identity)
 
-    with open(TICKERS_FILE) as f:
-        tickers = [line.strip() for line in f if line.strip()]
+    tickers = load_tickers()
 
     all_rows = []
 

@@ -278,7 +278,7 @@ class TestOneTickerFailing:
 
         monkeypatch.setenv("ALPACA_API_KEY", "k")
         monkeypatch.setenv("ALPACA_API_SECRET", "s")
-        monkeypatch.setattr(psi, "TICKERS_FILE", str(tickers))
+        monkeypatch.setenv("TICKERS_FILE", str(tickers))
         monkeypatch.setattr(psi, "get_db_connection", lambda: conn)
         monkeypatch.setattr(psi, "get_company_key", company_key)
         monkeypatch.setattr(psi, "_fetch_alpaca_bars", lambda ticker, credentials: SESSION)
@@ -302,7 +302,7 @@ class TestEveryTickerFailing:
 
         monkeypatch.setenv("ALPACA_API_KEY", "k")
         monkeypatch.setenv("ALPACA_API_SECRET", "s")
-        monkeypatch.setattr(psi, "TICKERS_FILE", str(tickers))
+        monkeypatch.setenv("TICKERS_FILE", str(tickers))
         monkeypatch.setattr(psi, "get_db_connection", lambda: _AbortingConn())
         monkeypatch.setattr(psi, "get_company_key", lambda c, ticker: {"AAPL": 1, "MSFT": 2}[ticker])
         monkeypatch.setattr(psi, "_fetch_alpaca_bars", refused)

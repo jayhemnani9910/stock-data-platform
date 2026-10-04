@@ -1,8 +1,5 @@
-import os
-
 from db_utils import UPSERT_COMPANY_SQL, batch_insert, get_db_connection
-
-TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
+from tickers import load_tickers
 
 COMPANY_METADATA = {
     "AAPL": ("Apple Inc.", "Technology", "Consumer Electronics", "NASDAQ"),
@@ -34,8 +31,7 @@ COMPANY_METADATA = {
 
 
 def populate_dim_company():
-    with open(TICKERS_FILE) as f:
-        tickers = [line.strip() for line in f if line.strip()]
+    tickers = load_tickers()
 
     companies = []
     for ticker in tickers:

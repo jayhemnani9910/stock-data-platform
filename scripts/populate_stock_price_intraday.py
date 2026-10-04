@@ -10,8 +10,7 @@ from db_utils import (
     get_company_key,
     get_db_connection,
 )
-
-TICKERS_FILE = os.environ.get("TICKERS_FILE", "/opt/airflow/dags/tickers.txt")
+from tickers import load_tickers
 
 # After a successful Alpaca load, the ticker's bars from any other provider go.
 # A volume first loaded by the old Yahoo hourly loader still holds those rows,
@@ -172,8 +171,7 @@ def populate_stock_price_intraday():
         )
         return False
 
-    with open(TICKERS_FILE) as f:
-        tickers = [line.strip() for line in f if line.strip()]
+    tickers = load_tickers()
 
     total = 0
     attempted, failed = 0, []
