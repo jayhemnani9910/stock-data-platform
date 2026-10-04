@@ -60,7 +60,7 @@
     "report_date": "2026-07-30",
     "eps_estimate": 1.83,
     "eps_actual": 5.75,
-    "surprise_pct": 215.02
+    "surprise_pct": 214.89
   },
   {
     "ticker": "AMZN",
@@ -171,15 +171,15 @@
     "ticker": "GOOG",
     "report_date": "2026-07-22",
     "eps_estimate": 2.91,
-    "eps_actual": 9.11,
-    "surprise_pct": 212.9
+    "eps_actual": 2.85,
+    "surprise_pct": -2.15
   },
   {
     "ticker": "GOOG",
     "report_date": "2026-04-29",
     "eps_estimate": 2.63,
-    "eps_actual": 5.11,
-    "surprise_pct": 94.3
+    "eps_actual": 2.76,
+    "surprise_pct": 4.95
   },
   {
     "ticker": "GOOG",
@@ -193,7 +193,7 @@
     "report_date": "2025-10-29",
     "eps_estimate": 2.26,
     "eps_actual": 2.87,
-    "surprise_pct": 26.88
+    "surprise_pct": 26.87
   },
   {
     "ticker": "GOOG",

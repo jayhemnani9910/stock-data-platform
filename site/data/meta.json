@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-09-11T07:48:23+00:00",
+  "generated_at": "2026-10-04T14:45:39+00:00",
   "datasets": {
     "price_summary.json": {
-      "records": 610,
-      "data_through": "2026-09-10"
+      "records": 640,
+      "data_through": "2026-10-02"
     },
     "fundamentals.json": {
       "records": 10,
-      "data_through": "2026-09-11"
+      "data_through": "2026-10-04"
     },
     "earnings.json": {
       "records": 80,
       "data_through": "2026-08-26"
     },
     "macro.json": {
-      "records": 193,
-      "data_through": "2026-08-01"
+      "records": 192,
+      "data_through": "2026-09-01"
     }
   }
 }
