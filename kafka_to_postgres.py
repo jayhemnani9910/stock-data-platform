@@ -162,19 +162,24 @@ def main():
                     if data is None:
                         continue
                     try:
-                        batch.append(
-                            (
-                                data["date"],
-                                data["company_key"],
-                                data["open"],
-                                data["high"],
-                                data["low"],
-                                data["close"],
-                                data["volume"],
-                            )
+                        row = (
+                            data["date"],
+                            data["company_key"],
+                            data["open"],
+                            data["high"],
+                            data["low"],
+                            data["close"],
+                            data["volume"],
                         )
                     except (KeyError, TypeError) as e:
                         print(f"Malformed message, skipping: {e} {data}")
+                        continue
+                    # A null price would reach max()/min() in _collapse_batch
+                    # outside the flush's try, and replay on every restart.
+                    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in row[2:]):
+                        print(f"Malformed message, skipping: non-numeric price {data}")
+                        continue
+                    batch.append(row)
 
             now = time.time()
             if batch and (len(batch) >= BATCH_SIZE or now - last_flush >= FLUSH_INTERVAL):

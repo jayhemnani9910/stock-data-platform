@@ -157,11 +157,11 @@ def _to_rows(history, company_key, source, bar_interval=BAR_INTERVAL):
 
 
 def populate_stock_price_intraday():
-    """Reload every hourly bar from Alpaca. Returns False if it did nothing.
+    """Reload every hourly bar from Alpaca. Returns False if the keys are missing.
 
     False means the keys are missing, and the caller should surface that as a
     skip rather than a success -- a green run that wrote nothing is how stale
-    data goes unnoticed.
+    data goes unnoticed. With keys set, loading nothing at all raises.
     """
     credentials = _alpaca_credentials()
     if not credentials:
@@ -207,4 +207,8 @@ def populate_stock_price_intraday():
                 print(f"Error fetching intraday for {ticker}: {e}")
 
     print(f"Intraday prices updated: {total} {BAR_INTERVAL} bars across {len(tickers)} tickers")
+    if not total:
+        # Keys are set but every ticker failed or came back empty: bad keys or
+        # the API is down. Fail the task rather than report a green run.
+        raise RuntimeError("Alpaca keys are set but no hourly bars were loaded for any ticker")
     return True

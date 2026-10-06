@@ -87,19 +87,28 @@ def _get_last_loaded_date(ticker):
     returns None, which extract_data cannot tell apart from a genuine first run,
     so a brief outage silently turns an incremental pull into a full-history refetch
     and hides the outage itself.
+
+    The Kafka consumer writes the current session's row into the same table, and
+    it runs while the DAGs are still paused. Rows that all sit inside the
+    overlap window are streaming rows, not loaded history, so they count as a
+    first run. Otherwise MAX(date) would be today and period="max" never ran.
     """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT MAX(f.date) FROM fact_stock_price_daily f
+                SELECT MIN(f.date), MAX(f.date) FROM fact_stock_price_daily f
                 JOIN dim_company d ON f.company_key = d.company_key
                 WHERE d.ticker = %s AND d.is_current = TRUE
             """,
                 (ticker,),
             )
             row = cur.fetchone()
-            return row[0] if row and row[0] else None
+            if not row or not row[1]:
+                return None
+            if row[0] > datetime.today().date() - timedelta(days=OVERLAP_DAYS):
+                return None
+            return row[1]
 
 
 # How far back each incremental run re-reads. Long enough to still hold prices
@@ -331,5 +340,16 @@ with DAG(
     tags=["stock", "CSV"],
 ) as export_dag:
     export_csvs = PythonOperator(task_id="export_30_day_csvs", python_callable=export_30_day_csvs)
+
+    # The monthly rollup runs after a load lands, not on its own @daily clock
+    # beside the ETL, where it could aggregate before the night's closes.
+    trigger_aggregate = TriggerDagRunOperator(
+        task_id="trigger_monthly_aggregate",
+        trigger_dag_id="monthly_aggregate_dag",
+        wait_for_completion=False,
+        reset_dag_run=True,
+    )
+
+    export_csvs >> trigger_aggregate
 
 globals()["csv_export_dag"] = export_dag

@@ -41,23 +41,12 @@ def populate_company_fundamentals():
                 continue
             try:
                 info = yf.Ticker(ticker).info
-                rows.append(
-                    (
-                        today,
-                        company_key,
-                        info.get("marketCap"),
-                        info.get("trailingPE"),
-                        info.get("forwardPE"),
-                        info.get("priceToBook"),
-                        info.get("dividendRate"),
-                        info.get("dividendYield"),
-                        info.get("beta"),
-                        info.get("fiftyTwoWeekHigh"),
-                        info.get("fiftyTwoWeekLow"),
-                        info.get("fullTimeEmployees"),
-                        info.get("longBusinessSummary"),
-                    )
-                )
+                # A rate-limited .info comes back empty. Writing it would make
+                # an all-NULL row the newest, and hide the last good one.
+                if info.get("marketCap") is None:
+                    print(f"Skipping {ticker}: no fundamentals returned")
+                    continue
+                rows.append((today, company_key, *(info.get(field) for field in INFO_FIELDS)))
             except Exception as e:
                 print(f"Error fetching info for {ticker}: {e}")
 

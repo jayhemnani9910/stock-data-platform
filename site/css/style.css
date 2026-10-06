@@ -311,6 +311,15 @@ img { max-width: 100%; display: block; }
 .ticker-tape::before { left: 0; background: linear-gradient(90deg, var(--bg-primary), transparent); }
 .ticker-tape::after { right: 0; background: linear-gradient(270deg, var(--bg-primary), transparent); }
 
+.ticker-asof {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-sm) var(--space-lg);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
 .ticker-track { display: inline-flex; animation: scroll-tape 30s linear infinite; gap: var(--space-2xl); }
 
 .ticker-item {
@@ -609,6 +618,7 @@ img { max-width: 100%; display: block; }
 }
 
 .stat-card {
+  min-width: 0;
   background: var(--bg-glass);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
@@ -666,6 +676,7 @@ img { max-width: 100%; display: block; }
 }
 
 .card {
+  min-width: 0;
   background: var(--bg-glass);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
@@ -735,7 +746,7 @@ img { max-width: 100%; display: block; }
 .data-table .positive { color: var(--green); }
 .data-table .negative { color: var(--red); }
 
-.chart-container { position: relative; height: 280px; }
+.chart-container { position: relative; height: 280px; min-width: 0; }
 
 /* ═══ ANIMATIONS ═══ */
 @keyframes fadeInUp {
@@ -773,4 +784,6 @@ img { max-width: 100%; display: block; }
   .use-case-grid { grid-template-columns: 1fr; }
   .footer-content { flex-direction: column; gap: var(--space-md); }
   .dashboard-grid { grid-template-columns: 1fr; }
+  .stat-card { padding: var(--space-md); }
+  .stat-value { font-size: 1.5rem; }
 }

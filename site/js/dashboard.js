@@ -8,7 +8,7 @@ const TEXT_MUTED = '#64748b';
 
 const TICKER_COLORS = {
   AAPL: GREEN, AMZN: BLUE, GOOG: CYAN, META: '#a855f7',
-  MSFT: '#3b82f6', NFLX: RED, NVDA: GREEN, TSLA: AMBER,
+  MSFT: '#e2e8f0', NFLX: RED, NVDA: '#a3e635', TSLA: AMBER,
   JPM: '#6366f1', DIS: '#ec4899'
 };
 
