@@ -44,6 +44,9 @@ def populate_earnings():
             except Exception as e:
                 print(f"Error fetching earnings for {ticker}: {e}")
 
+        # Two report times on one calendar date share a key, and one upsert
+        # cannot touch the same row twice. Last one wins.
+        rows = list({(r[0], r[1]): r for r in rows}.values())
         if rows:
             batch_insert(conn, UPSERT_EARNINGS_SQL, rows)
 

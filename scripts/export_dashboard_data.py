@@ -166,8 +166,12 @@ def main():
 
     for filename, data in exports.items():
         path = os.path.join(OUTPUT_DIR, filename)
-        with open(path, "w") as f:
+        # Write beside the file and swap it in, so a failed dump leaves the
+        # old file whole instead of truncated.
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w") as f:
             json.dump(data, f, indent=2, default=str)
+        os.replace(tmp_path, path)
         count = len(data) if isinstance(data, list) else len(data.get("datasets", {}))
         print(f"Exported {filename}: {count} records")
 
