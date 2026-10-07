@@ -2,12 +2,6 @@
   {
     "series_id": "CPIAUCSL",
     "name": "Consumer Price Index (All Urban)",
-    "date": "2021-10-01",
-    "value": 276.55
-  },
-  {
-    "series_id": "CPIAUCSL",
-    "name": "Consumer Price Index (All Urban)",
     "date": "2021-11-01",
     "value": 278.919
   },
@@ -342,10 +336,10 @@
     "value": 332.813
   },
   {
-    "series_id": "FEDFUNDS",
-    "name": "Federal Funds Effective Rate",
-    "date": "2021-10-01",
-    "value": 0.08
+    "series_id": "CPIAUCSL",
+    "name": "Consumer Price Index (All Urban)",
+    "date": "2026-08-01",
+    "value": 334.131
   },
   {
     "series_id": "FEDFUNDS",
@@ -696,124 +690,118 @@
     "value": 3.63
   },
   {
-    "series_id": "GDP",
-    "name": "Gross Domestic Product",
-    "date": "2021-10-01",
-    "value": 24813.6
+    "series_id": "FEDFUNDS",
+    "name": "Federal Funds Effective Rate",
+    "date": "2026-09-01",
+    "value": 3.75
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2022-01-01",
-    "value": 25250.347
+    "value": 25259.992
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2022-04-01",
-    "value": 25861.292
+    "value": 25869.353
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2022-07-01",
-    "value": 26336.304
+    "value": 26335.374
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2022-10-01",
-    "value": 26770.514
+    "value": 26774.117
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2023-01-01",
-    "value": 27216.445
+    "value": 27241.282
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2023-04-01",
-    "value": 27530.055
+    "value": 27533.925
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2023-07-01",
-    "value": 28074.846
+    "value": 28064.032
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2023-10-01",
-    "value": 28424.722
+    "value": 28464.306
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2024-01-01",
-    "value": 28708.161
+    "value": 28793.191
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2024-04-01",
-    "value": 29147.044
+    "value": 29232.964
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2024-07-01",
-    "value": 29511.664
+    "value": 29568.256
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2024-10-01",
-    "value": 29825.182
+    "value": 29929.552
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2025-01-01",
-    "value": 30042.113
+    "value": 30171.979
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2025-04-01",
-    "value": 30485.729
+    "value": 30630.174
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2025-07-01",
-    "value": 31098.027
+    "value": 31180.493
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2025-10-01",
-    "value": 31422.526
+    "value": 31462.523
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2026-01-01",
-    "value": 31865.721
+    "value": 31906.274
   },
   {
     "series_id": "GDP",
     "name": "Gross Domestic Product",
     "date": "2026-04-01",
-    "value": 32486.066
-  },
-  {
-    "series_id": "UNRATE",
-    "name": "Unemployment Rate",
-    "date": "2021-10-01",
-    "value": 4.5
+    "value": 32563.03
   },
   {
     "series_id": "UNRATE",
@@ -1156,5 +1144,11 @@
     "name": "Unemployment Rate",
     "date": "2026-08-01",
     "value": 4.1
+  },
+  {
+    "series_id": "UNRATE",
+    "name": "Unemployment Rate",
+    "date": "2026-09-01",
+    "value": 4.2
   }
 ]
